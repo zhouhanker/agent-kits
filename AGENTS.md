@@ -121,6 +121,11 @@
   Agent analysis has not produced a retained validation receipt in this
   automation session, so dynamic Luna validation and global installation remain
   unverified. Do not report them as complete.
+- Runtime Agent evidence: Codex structured analysis is currently blocked by an
+  invalid API-key response. Claude Code can complete a minimal no-tool text
+  request but its configured provider rejects structured JSON requests. Neither
+  is presently an eligible dynamic-intake Agent; repair the external Agent
+  authentication/provider state before retrying.
 - V2 source-intake implementation was pushed to `origin/main` as commit
   `54592b4` on 2026-08-21 after a staged credential-pattern scan. `llm-repo/`
   was not staged or pushed.

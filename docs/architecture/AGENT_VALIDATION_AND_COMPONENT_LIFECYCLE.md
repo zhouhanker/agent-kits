@@ -29,6 +29,10 @@ an explicit, fixed-content structured model probe. It proves that the selected
 local Agent can make a constrained call, can consume its quota, and makes no
 installation, source download, or sandbox operation. Source intake independently
 proves the same capability with the actual source only after the Docker gate.
+An Agent must successfully support the structured-output capability used by the
+adapter. A binary that can produce ordinary text but whose provider rejects
+structured output is unavailable for dynamic intake; this is reported as an
+Agent prerequisite failure, not as a source or sandbox failure.
 
 ## Required Lifecycle
 

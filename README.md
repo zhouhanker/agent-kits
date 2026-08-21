@@ -58,6 +58,14 @@ kitcli catalog list
 daemon 正在运行。模型由本机 Agent 自己选择和计费；`kitcli` 不提供模型、不保存 token，
 也不会执行来源 Markdown 中的命令。
 
+Claude Code 默认兼容订阅登录；需要显式使用 `ANTHROPIC_API_KEY` 的无用户配置模式时，设置
+`AGENT_KITS_CLAUDE_CODE_MODE=api-key`。也可设置为 `subscription` 强制使用订阅登录，或保留
+默认 `auto` 自动选择。两种模式均禁用模型工具、MCP 配置和会话持久化。
+
+`kitcli agents check` 若失败会保留 Agent 返回的可操作诊断并脱敏 API-key 形式的内容。
+认证、订阅、额度或第三方 Agent 提供方拒绝请求时，必须先修复该 Agent；`kitcli` 不会尝试
+修改登录态或替换凭据。
+
 还必须设置一个经过审查、带 SHA-256 digest 的验证镜像。镜像需要提供
 `/usr/local/bin/python`，例如由团队发布的 Python 3.11 验证镜像：
 

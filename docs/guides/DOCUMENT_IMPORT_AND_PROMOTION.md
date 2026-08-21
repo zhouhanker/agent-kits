@@ -67,6 +67,10 @@ kitcli source -url https://example.org/component.md --agent auto --scope user
 进入 Docker，也不会写入客户端配置。完整 intake 仍会在 Docker 前置检查成功后才把真实
 来源交给本机 Agent。
 
+若 Agent 可执行普通文本调用、但其认证或提供方拒绝结构化 JSON 调用，仍视为动态 intake
+不可用。此时先修复对应 Codex/Claude Code 的登录、订阅、额度、版本或提供方策略；不能将
+问题误判为来源、MCP、Skill 或 Docker sandbox 失败。
+
 该命令顺序固定为：静态 gate -> Docker sandbox 前置检查 -> 本机 Agent 受限 JSON
 分析 -> 已审核组件的无网络 sandbox 验证 -> 本地 receipt -> `y/N` 安装确认。
 `--non-interactive` 时，只有显式 `--yes` 才会安装。Agent 输出、Markdown 内容和

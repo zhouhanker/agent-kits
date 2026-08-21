@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from agent_kits.application.service import run_component_create, run_install, run_source_intake, run_update_cli
-from agent_kits.infrastructure.agents import AgentAnalysis, LocalAgent
+from agent_kits.infrastructure.agents import AgentAnalysis, LocalAgent, _agent_failure_message, _claude_command
 from agent_kits.infrastructure.components import luna_candidate_sha256, luna_source_sha256
 from agent_kits.infrastructure.state import state_file, write_json_atomic
 from agent_kits.cli.main import main
@@ -148,6 +148,24 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result["data"]["model_access"], "available")
         self.assertFalse((self.codex / "config.toml").exists())
         analyze.assert_called_once()
+
+    def test_claude_subscription_analysis_does_not_require_api_key_mode(self) -> None:
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        os.environ.pop("AGENT_KITS_CLAUDE_CODE_MODE", None)
+        command = _claude_command(LocalAgent("claude-code", ("claude",), "/usr/local/bin/claude", True), "probe")
+        self.assertNotIn("--bare", command)
+        self.assertIn("--tools", command)
+        self.assertIn("--strict-mcp-config", command)
+        self.assertIn("--disable-slash-commands", command)
+
+    def test_claude_api_key_mode_uses_bare_execution(self) -> None:
+        os.environ["AGENT_KITS_CLAUDE_CODE_MODE"] = "api-key"
+        command = _claude_command(LocalAgent("claude-code", ("claude",), "/usr/local/bin/claude", True), "probe")
+        self.assertIn("--bare", command)
+
+    def test_agent_failure_message_prefers_structured_error_and_redacts_key(self) -> None:
+        stdout = json.dumps({"result": "Request rejected for sk-secret_value"})
+        self.assertEqual(_agent_failure_message("ignored", stdout), "Request rejected for sk-***")
 
     def test_luna_install_requires_validation_receipt(self) -> None:
         code, result, _, _ = self.invoke("install", "luna-worker", "--scope", "user", "--yes")

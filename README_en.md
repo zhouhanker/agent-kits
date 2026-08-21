@@ -63,6 +63,17 @@ Codex CLI or Claude Code, plus a running Docker daemon. The local Agent selects
 and bills its own model; `kitcli` does not provide a model, store tokens, or run
 commands embedded in source Markdown.
 
+Claude Code defaults to subscription-compatible authentication. To explicitly
+use the API-key-only mode without user configuration, set
+`AGENT_KITS_CLAUDE_CODE_MODE=api-key`; use `subscription` to force subscription
+authentication or retain the default `auto` selection. Both modes disable model
+tools, MCP configuration, and session persistence.
+
+When `kitcli agents check` fails, it retains actionable Agent diagnostics while
+redacting API-key-shaped values. Authentication, subscription, quota, or
+third-party Agent-provider rejections must be corrected in that Agent; `kitcli`
+does not modify login state or replace credentials.
+
 It also requires a reviewed, SHA-256 digest-pinned validation image that provides
 `/usr/local/bin/python`, for example a team-published Python 3.11 image:
 
