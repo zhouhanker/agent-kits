@@ -23,6 +23,8 @@ curl -fsSL https://github.com/zhouhanker/agent-kits/releases/latest/download/ins
 kitcli doctor
 ```
 
+安装器会显示当前阶段、Release 下载进度、SHA-256 校验和隔离环境安装状态。
+
 安装器会把入口放在 `~/.local/bin/kitcli`。若当前 shell 找不到命令，请将
 `~/.local/bin` 加入 `PATH` 后重新打开终端。
 
@@ -233,6 +235,6 @@ URL/文件 -> source inspect -> source import/quarantine
 - [架构评审](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent 验证与组件生命周期](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-当前 `v0.1.6` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
+当前 `v0.1.7` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
 但尚未在真实 Windows 设备验证；外部 Apple 网关仍需不可变 Release、制品摘要、许可证
 和 CI 证据后才能进入无人值守安装。

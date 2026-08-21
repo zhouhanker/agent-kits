@@ -2,6 +2,14 @@
 # Download and inspect this file before executing it in a production environment.
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "Continue"
+
+function Show-Step([string]$Message, [int]$Percent) {
+    Write-Progress -Activity "kitcli installation" -Status $Message -PercentComplete $Percent
+    Write-Host "[kitcli] $Message"
+}
+
+Show-Step "checking installer prerequisites" 5
 $repoUrl = if ($env:KITCLI_REPOSITORY) { $env:KITCLI_REPOSITORY } else { "https://github.com/zhouhanker/agent-kits" }
 $releaseVersion = if ($env:KITCLI_VERSION) { $env:KITCLI_VERSION } else { "latest" }
 $installRoot = if ($env:KITCLI_INSTALL_ROOT) { $env:KITCLI_INSTALL_ROOT } else { Join-Path $env:LOCALAPPDATA "kitcli" }
@@ -19,11 +27,13 @@ if (-not $python) { throw "Python 3.11+ is required" }
 $pythonVersion = & $python @pythonArgs -c "import sys; print('%d.%d' % sys.version_info[:2])"
 & $python @pythonArgs -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"
 if ($LASTEXITCODE -ne 0) { throw "Found Python $pythonVersion; Python 3.11+ is required" }
+Show-Step "using Python $pythonVersion" 10
 
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("kitcli-install-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 try {
     if ($env:KITCLI_WHEEL_URL) {
+        Show-Step "using the explicitly configured Release asset" 20
         $wheelUrl = $env:KITCLI_WHEEL_URL
         $wheelName = if ($env:KITCLI_WHEEL_NAME) { $env:KITCLI_WHEEL_NAME } else { [System.IO.Path]::GetFileName(([uri]$wheelUrl).AbsolutePath) }
         $checksumUrl = $env:KITCLI_CHECKSUM_URL
@@ -31,6 +41,7 @@ try {
         $releaseApiUrl = if ($env:KITCLI_RELEASE_API_URL) { $env:KITCLI_RELEASE_API_URL } else { "" }
     }
     else {
+        Show-Step "resolving the latest GitHub Release" 20
         $repoPath = $repoUrl.Substring("https://github.com/".Length).TrimEnd("/")
         $apiUrl = if ($env:KITCLI_RELEASE_API_URL) { $env:KITCLI_RELEASE_API_URL } else { "https://api.github.com/repos/$repoPath/releases/latest" }
         if ($releaseVersion -ne "latest") { $apiUrl = "https://api.github.com/repos/$repoPath/releases/tags/$releaseVersion" }
@@ -48,8 +59,11 @@ try {
     if (-not $wheelUrl.StartsWith("https://") -or -not $checksumUrl.StartsWith("https://") -or $wheelHost -notin @("github.com", "objects.githubusercontent.com") -or $checksumHost -notin @("github.com", "objects.githubusercontent.com")) { throw "Release asset URLs must use GitHub HTTPS" }
     $wheelPath = Join-Path $tempRoot $wheelName
     $checksumPath = Join-Path $tempRoot "SHA256SUMS"
+    Show-Step "downloading $wheelName" 35
     Invoke-WebRequest -Uri $wheelUrl -OutFile $wheelPath
+    Show-Step "downloading release checksums" 55
     Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath
+    Show-Step "verifying the wheel SHA-256 digest" 70
     $line = Get-Content $checksumPath | Where-Object { $_ -match ([regex]::Escape($wheelName) + "$") } | Select-Object -First 1
     if (-not $line -or $line -notmatch "^([0-9a-fA-F]{64})\s+") { throw "Checksum missing for $wheelName" }
     $expected = $Matches[1].ToLowerInvariant()
@@ -59,8 +73,13 @@ try {
     New-Item -ItemType Directory -Force -Path $installRoot, $binDir | Out-Null
     $venv = Join-Path $installRoot "venv"
     $venvPython = Join-Path $venv "Scripts\python.exe"
-    if (-not (Test-Path $venvPython)) { & $python @pythonArgs -m venv $venv }
-    & $venvPython -m pip install --upgrade --no-deps $wheelPath | Out-Null
+    if (-not (Test-Path $venvPython)) {
+        Show-Step "creating the isolated Python environment" 80
+        & $python @pythonArgs -m venv $venv
+    }
+    Show-Step "installing kitcli $wheelName" 88
+    & $venvPython -m pip install --progress-bar on --upgrade --no-deps $wheelPath
+    Show-Step "writing the installer metadata" 95
     $state = [ordered]@{
         schema_version = 1
         method = "official-isolated-installer"
@@ -81,6 +100,8 @@ try {
     if (-not (($userPath -split ";") -contains $binDir)) {
         [Environment]::SetEnvironmentVariable("Path", (($userPath.TrimEnd(";") + ";" + $binDir).TrimStart(";")), "User")
     }
+    Write-Progress -Activity "kitcli installation" -Status "installation complete" -Completed
+    Write-Output "[kitcli] installation complete"
     Write-Output "kitcli installed in $venv"
     Write-Output "Open a new terminal, then run: kitcli doctor"
 }

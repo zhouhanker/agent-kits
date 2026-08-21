@@ -26,6 +26,9 @@ Then verify the installation:
 kitcli doctor
 ```
 
+The installer reports each stage, download progress, SHA-256 verification, and
+isolated-environment installation status.
+
 The command is installed at `~/.local/bin/kitcli`. Add `~/.local/bin` to `PATH`
 and open a new terminal if the command is not available in the current shell.
 
@@ -252,7 +255,7 @@ URL/file -> source inspect -> source import/quarantine
 - [Architecture review](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent validation and component lifecycle](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-The official `v0.1.6` installer and self-update flow are verified on macOS.
+The official `v0.1.7` installer and self-update flow are verified on macOS.
 The Windows installer has CI coverage but has not yet been verified on a real
 Windows device. The external Apple gateway remains manual-only until it has an
 immutable Release, artifact digest, license, and CI evidence.

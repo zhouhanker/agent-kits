@@ -10,6 +10,12 @@ release_version=${KITCLI_VERSION:-latest}
 install_root=${KITCLI_INSTALL_ROOT:-"$HOME/.local/share/kitcli"}
 bin_dir=${KITCLI_BIN_DIR:-"$HOME/.local/bin"}
 
+step() {
+  printf '[kitcli] %s\n' "$1"
+}
+
+step "checking installer prerequisites"
+
 case "$repo_url" in
   https://*) ;;
   *) echo "kitcli installer: KITCLI_REPOSITORY must use HTTPS" >&2; exit 2 ;;
@@ -29,24 +35,27 @@ $python_cmd -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' |
   echo "kitcli installer: found Python $python_version, need Python 3.11+" >&2
   exit 3
 }
+step "using Python $python_version"
 
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/kitcli-install.XXXXXX")
 cleanup() { rm -rf "$tmp_dir"; }
 trap cleanup EXIT INT TERM
 
 if [ -n "${KITCLI_WHEEL_URL:-}" ]; then
+  step "using the explicitly configured Release asset"
   wheel_url=$KITCLI_WHEEL_URL
   wheel_name=${KITCLI_WHEEL_NAME:-$(basename "$wheel_url")}
   checksum_url=${KITCLI_CHECKSUM_URL:-}
   release_api_url=${KITCLI_RELEASE_API_URL:-}
 else
+  step "resolving the latest GitHub Release"
   repo_path=${repo_url#https://github.com/}
   repo_path=${repo_path%/}
   api_url=${KITCLI_RELEASE_API_URL:-"https://api.github.com/repos/$repo_path/releases/latest"}
   if [ "$release_version" != "latest" ]; then
     api_url="https://api.github.com/repos/$repo_path/releases/tags/$release_version"
   fi
-  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 120 "$api_url" -o "$tmp_dir/release.json"
+  curl --fail --show-error --progress-bar --location --proto '=https' --tlsv1.2 --max-time 120 "$api_url" -o "$tmp_dir/release.json"
   release_assets=$($python_cmd - "$tmp_dir/release.json" <<'PY'
 import json
 import pathlib
@@ -71,8 +80,11 @@ fi
 case "$wheel_url" in https://github.com/*|https://objects.githubusercontent.com/*) ;; *) echo "kitcli installer: release wheel URL must use GitHub HTTPS" >&2; exit 2 ;; esac
 case "$checksum_url" in https://github.com/*|https://objects.githubusercontent.com/*) ;; *) echo "kitcli installer: checksum URL must use GitHub HTTPS" >&2; exit 2 ;; esac
 
-curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 120 "$wheel_url" -o "$tmp_dir/$wheel_name"
-curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 120 "$checksum_url" -o "$tmp_dir/SHA256SUMS"
+step "downloading $wheel_name"
+curl --fail --show-error --progress-bar --location --proto '=https' --tlsv1.2 --max-time 120 "$wheel_url" -o "$tmp_dir/$wheel_name"
+step "downloading release checksums"
+curl --fail --show-error --progress-bar --location --proto '=https' --tlsv1.2 --max-time 120 "$checksum_url" -o "$tmp_dir/SHA256SUMS"
+step "verifying the wheel SHA-256 digest"
 $python_cmd - "$tmp_dir/$wheel_name" "$tmp_dir/SHA256SUMS" "$wheel_name" <<'PY'
 import hashlib
 import pathlib
@@ -96,9 +108,12 @@ PY
 mkdir -p "$install_root" "$bin_dir"
 venv_dir="$install_root/venv"
 if [ ! -x "$venv_dir/bin/python" ]; then
+  step "creating the isolated Python environment"
   "$python_cmd" -m venv "$venv_dir"
 fi
-"$venv_dir/bin/python" -m pip install --upgrade --no-deps "$tmp_dir/$wheel_name" >/dev/null
+step "installing kitcli $wheel_name"
+"$venv_dir/bin/python" -m pip install --progress-bar on --upgrade --no-deps "$tmp_dir/$wheel_name"
+step "writing the installer metadata"
 ln -sf "$venv_dir/bin/kitcli" "$bin_dir/kitcli"
 ln -sf "$venv_dir/bin/agent-kits" "$bin_dir/agent-kits"
 
@@ -121,6 +136,7 @@ pathlib.Path(output).write_text(json.dumps({
 }, indent=2) + "\n", encoding="utf-8")
 PY
 
+step "installation complete"
 echo "kitcli installed in $venv_dir"
 if [ -x "$bin_dir/kitcli" ]; then
   case ":$PATH:" in *":$bin_dir:"*) ;; *) echo "Add $bin_dir to PATH, then run: kitcli doctor" ;; esac
