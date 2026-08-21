@@ -344,7 +344,9 @@ def run_apply(plan_id: str, scope: str, project_root: Path, confirm: bool) -> di
                 backup_path.write_bytes(path.read_bytes())
             path.parent.mkdir(parents=True, exist_ok=True)
             temporary = path.with_name(f".{path.name}.{receipt_id}.tmp")
-            temporary.write_text(item["after_content"], encoding="utf-8")
+            # Write bytes so the digest and managed content retain LF semantics
+            # on Windows instead of inheriting the platform text newline mode.
+            temporary.write_bytes(item["after_content"].encode("utf-8"))
             os.replace(temporary, path)
             applied.append({"path": str(path), "root": str(root), "before_sha256": item["before_sha256"], "after_sha256": item["after_sha256"], "backup": str(backup_path) if existed else None, "existed": existed})
     except Exception:
