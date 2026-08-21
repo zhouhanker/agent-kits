@@ -121,6 +121,9 @@
   Agent analysis has not produced a retained validation receipt in this
   automation session, so dynamic Luna validation and global installation remain
   unverified. Do not report them as complete.
+- V2 source-intake implementation was pushed to `origin/main` as commit
+  `54592b4` on 2026-08-21 after a staged credential-pattern scan. `llm-repo/`
+  was not staged or pushed.
 - Unknown MCP/Skill sources may become local `review_required` candidates only;
   they are not installable until a reviewed manifest and bounded validation
   recipe exist.
