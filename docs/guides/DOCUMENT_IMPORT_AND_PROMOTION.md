@@ -11,6 +11,8 @@ V2 动态验证需要本机 Codex CLI 或 Claude Code，以及运行中的 Docke
 Agent 只负责语义分类和客户端验收；Docker 才负责受限执行。没有可用 sandbox 时，
 动态 intake 必须失败，不得降级为“已经验证”。具体边界见
 [`AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md`](../architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)。
+实际前置检查、错误归属和无安装验收步骤见
+[`DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md`](DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md)。
 
 ## 1. 先区分四种东西
 

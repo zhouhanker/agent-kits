@@ -66,6 +66,9 @@ Claude Code 默认兼容订阅登录；需要显式使用 `ANTHROPIC_API_KEY` �
 认证、订阅、额度或第三方 Agent 提供方拒绝请求时，必须先修复该 Agent；`kitcli` 不会尝试
 修改登录态或替换凭据。
 
+完整的前置检查、无安装验收和 MCP/Skill 准入要求见
+[`动态 Agent 验证排障与验收`](docs/guides/DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md)。
+
 还必须设置一个经过审查、带 SHA-256 digest 的验证镜像。镜像需要提供
 `/usr/local/bin/python`，例如由团队发布的 Python 3.11 验证镜像：
 

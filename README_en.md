@@ -74,6 +74,9 @@ redacting API-key-shaped values. Authentication, subscription, quota, or
 third-party Agent-provider rejections must be corrected in that Agent; `kitcli`
 does not modify login state or replace credentials.
 
+See [dynamic Agent validation troubleshooting](docs/guides/DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md)
+for prerequisite checks, no-install acceptance, and MCP/skill admission rules.
+
 It also requires a reviewed, SHA-256 digest-pinned validation image that provides
 `/usr/local/bin/python`, for example a team-published Python 3.11 image:
 
