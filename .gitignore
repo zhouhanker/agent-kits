@@ -1,0 +1,32 @@
+# Agent-local research and generated deliverables
+llm-repo/
+.agent-kits/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Packaging and virtual environments
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# IDE and operating system files
+.idea/
+.vscode/
+.DS_Store

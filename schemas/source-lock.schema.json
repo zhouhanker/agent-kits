@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhouhanker.github.io/agent-kits/schemas/source-lock.schema.json",
+  "title": "agent-kits external source lock",
+  "type": "object",
+  "required": ["source"],
+  "properties": {
+    "source": {
+      "type": "object",
+      "required": ["schema_version", "id", "version", "upstream_url", "commit_sha", "release_status", "install_policy"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "upstream_url": {"type": "string", "format": "uri"},
+        "commit_sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "release_status": {"enum": ["source-pinned", "release-pinned"]},
+        "install_policy": {"enum": ["manual-only", "verified-release"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+[source]
+schema_version = 1
+id = "multiple-devices-ai-gateway"
+version = "1.0.0"
+upstream_url = "https://github.com/zhouhanker/multiple-devices-ai-gateway"
+commit_sha = "f5c3b1142ca709d9763bb0d455265ff178c41232"
+release_status = "source-pinned"
+install_policy = "manual-only"

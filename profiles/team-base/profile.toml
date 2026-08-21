@@ -1,0 +1,5 @@
+[profile]
+schema_version = 1
+id = "team-base"
+description = "Cross-platform baseline profile with no credentials or device-private settings."
+kits = ["base"]

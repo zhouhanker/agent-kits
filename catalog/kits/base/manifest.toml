@@ -1,0 +1,25 @@
+[kit]
+schema_version = 1
+id = "base"
+version = "0.1.0"
+description = "Low-risk baseline instructions for supported agent clients."
+risk = "low"
+platforms = ["macos", "windows", "linux"]
+
+[[targets]]
+client = "codex"
+path = "AGENTS.md"
+payload = "payloads/base-instructions.md"
+payload_sha256 = "0ee614ab249290707747caff0f71d758e28271b1da8db5e5ea16e89440fa059b"
+strategy = "managed_markdown_block"
+block_id = "agent-kits-base"
+scopes = ["project", "user"]
+
+[[targets]]
+client = "claude-code"
+path = "CLAUDE.md"
+payload = "payloads/base-instructions.md"
+payload_sha256 = "0ee614ab249290707747caff0f71d758e28271b1da8db5e5ea16e89440fa059b"
+strategy = "managed_markdown_block"
+block_id = "agent-kits-base"
+scopes = ["project", "user"]

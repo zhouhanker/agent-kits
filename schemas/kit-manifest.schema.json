@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhouhanker.github.io/agent-kits/schemas/kit-manifest.schema.json",
+  "title": "agent-kits kit manifest",
+  "type": "object",
+  "required": ["kit", "targets"],
+  "properties": {
+    "kit": {
+      "type": "object",
+      "required": ["schema_version", "id", "version", "description", "risk", "platforms"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "description": {"type": "string", "minLength": 1},
+        "risk": {"enum": ["low", "medium", "high"]},
+        "platforms": {"type": "array", "minItems": 1, "items": {"enum": ["macos", "windows", "linux"]}}
+      },
+      "additionalProperties": false
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["client", "path", "payload", "payload_sha256", "strategy", "block_id", "scopes"],
+        "properties": {
+          "client": {"enum": ["codex", "claude-code"]},
+          "path": {"type": "string", "minLength": 1},
+          "payload": {"type": "string", "pattern": "^[^/].*"},
+          "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "strategy": {"const": "managed_markdown_block"},
+          "block_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
+          "scopes": {"type": "array", "minItems": 1, "items": {"enum": ["project", "user"]}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
