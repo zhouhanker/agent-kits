@@ -10,6 +10,7 @@
 kitcli agents list
 kitcli agents check --agent codex
 kitcli agents check --agent claude-code
+kitcli agents check --agent model-api
 ```
 
 `list` 不调用模型，仅确认二进制是否在 `PATH`。`check` 会发送固定的、无来源内容的
@@ -18,6 +19,8 @@ kitcli agents check --agent claude-code
 
 通过 `check` 的 Agent 才可用于 `source`。能回答普通文本、但不能遵守
 `--output-schema` 或 `--json-schema` 的 Agent 不是可用的动态验证器。
+`model-api` 读取本地 `env.toml` 的 OpenAI-compatible 配置并要求返回相同 JSON
+结构；它不需要在容器中登录。
 
 | 结果 | 含义 | 处理责任 |
 | --- | --- | --- |
@@ -40,6 +43,12 @@ export AGENT_KITS_SANDBOX_IMAGE='python@sha256:<reviewed-image-digest>'
 无网络、只读根文件系统、无用户主目录或凭据挂载；只有受审 payload 被渲染到临时
 工作目录。Docker 可用并不能证明 Agent 的登录或模型能力。
 
+macOS/Linux 推荐 Docker Engine/Desktop，Docker 不可用时支持 Podman。Windows 推荐
+Docker Desktop 的 WSL2 Linux-container backend；Podman Desktop 是可选后备。原生
+Windows container 与 Linux runtime 的语义不同，当前不作为跨平台 component 验证器。
+无论运行时位于 WSL2 或 Podman machine，`kitcli` 都只依赖容器 CLI 和 daemon，不要求
+项目自身在 WSL 发行版中安装。
+
 ## 3. 验证而不安装 Luna
 
 先以非交互模式运行，不传 `--yes`：
@@ -47,7 +56,7 @@ export AGENT_KITS_SANDBOX_IMAGE='python@sha256:<reviewed-image-digest>'
 ```bash
 kitcli --json --non-interactive source \
   -file ./docs/CODEX_LUNA_WORKER_SETUP.md \
-  --agent codex \
+  --agent model-api \
   --scope user
 ```
 
@@ -59,7 +68,9 @@ kitcli --json --non-interactive source \
 - `installation.status = "not_installed"`。
 
 此时 receipt 已保存在本地状态目录，但没有修改 `~/.codex/`。检查输出后，在交互
-终端重跑同一命令并回答 `y`，或在自动化中显式提供 `--yes`，才会安装。
+终端重跑同一命令并回答 `y`，或在自动化中显式提供 `--yes`，才会安装。当前 macOS
+开发环境已使用 `model-api` 和 Docker 完成这一无安装验收；其 receipt 仅对当时的
+指南 SHA-256、catalog payload SHA-256 和 Docker backend 有效。
 
 安装后仍需在真实 Codex 中确认 `/hooks` 显示 Hook 已信任并实际运行一次
 `luna_worker`。Docker receipt 证明受控配置和 Hook fixture，不证明 Codex 客户端的

@@ -117,15 +117,18 @@
   transaction remains the only writer.
 - Current host evidence: Codex and Claude Code are detected; Docker daemon is
   running and a local `python@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4`
-  image is available for an explicit `AGENT_KITS_SANDBOX_IMAGE` setting. Real
-  Agent analysis has not produced a retained validation receipt in this
-  automation session, so dynamic Luna validation and global installation remain
-  unverified. Do not report them as complete.
+  image is available for an explicit `AGENT_KITS_SANDBOX_IMAGE` setting.
+  Host-side `model-api` from the ignored DeepSeek-style `env.toml` completed a
+  structured capability probe and a real no-install Luna intake. Docker wrote
+  validated receipt `e7bcc1f85cfc6ccd6c9558995f855b98`; no global Codex files
+  were changed. Interactive installation and real Codex `/hooks` acceptance
+  remain unverified and must not be reported as complete.
 - Runtime Agent evidence: Codex structured analysis is currently blocked by an
   invalid API-key response. Claude Code can complete a minimal no-tool text
-  request but its configured provider rejects structured JSON requests. Neither
-  is presently an eligible dynamic-intake Agent; repair the external Agent
-  authentication/provider state before retrying.
+  request but its configured provider rejects structured JSON requests.
+  `model-api` is the currently eligible dynamic-intake analysis provider;
+  repair the external Agent authentication/provider state before using those
+  CLI adapters.
 - Claude subscription-compatible adapter behavior and redacted structured-error
   diagnostics were pushed to `origin/main` as `0952a05` on 2026-08-21. This
   does not resolve the external Agent authentication/provider blockers.

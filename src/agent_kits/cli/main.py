@@ -33,6 +33,7 @@ EXIT_VALIDATION = 3
 EXIT_CONFLICT = 4
 EXIT_POLICY = 5
 EXIT_INTERNAL = 10
+ANALYSIS_AGENTS = ("auto", "codex", "claude-code", "model-api")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -48,7 +49,7 @@ def _parser() -> argparse.ArgumentParser:
     agents_sub = agents.add_subparsers(dest="agents_command", required=True)
     agents_sub.add_parser("list", help="list discovered local Agent executables without using a model")
     agent_check = agents_sub.add_parser("check", help="prove one local Agent can complete a constrained model call")
-    agent_check.add_argument("--agent", choices=("auto", "codex", "claude-code"), default="auto")
+    agent_check.add_argument("--agent", choices=ANALYSIS_AGENTS, default="auto")
     catalog = subparsers.add_parser("catalog", help="inspect local catalog")
     catalog.add_subparsers(dest="catalog_command", required=True).add_parser("list", help="list validated kits")
 
@@ -62,7 +63,7 @@ def _parser() -> argparse.ArgumentParser:
     import_parser.add_argument("--as", dest="source_kind", choices=("document", "bundle"), required=True)
     intake = source_sub.add_parser("intake", help="analyze and validate a source with a local Agent")
     _add_source_arguments(intake)
-    intake.add_argument("--agent", choices=("auto", "codex", "claude-code"), default="auto")
+    intake.add_argument("--agent", choices=ANALYSIS_AGENTS, default="auto")
     intake.add_argument("--scope", choices=("project", "user"), default="user")
     intake.add_argument("--yes", action="store_true", help="approve installation after validation")
 
@@ -95,7 +96,7 @@ def _parser() -> argparse.ArgumentParser:
     component_sub = component.add_subparsers(dest="component_command", required=True)
     create = component_sub.add_parser("create", help="analyze and record a source as a review candidate")
     _add_source_arguments(create)
-    create.add_argument("--agent", choices=("auto", "codex", "claude-code"), default="auto")
+    create.add_argument("--agent", choices=ANALYSIS_AGENTS, default="auto")
     create.add_argument("--id", dest="component_id")
 
     update = subparsers.add_parser("update", help="check or update the CLI installation")
@@ -188,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         if command == "doctor":
             data = run_doctor(repository, project_root)
         elif command == "agents":
-            data = run_agents_list() if args.agents_command == "list" else run_agents_check(args.agent)
+            data = run_agents_list(repository) if args.agents_command == "list" else run_agents_check(repository, args.agent)
         elif command == "catalog":
             data = run_catalog_list(repository)
         elif command == "component":

@@ -43,12 +43,13 @@ def _timeout() -> int:
     return value
 
 
-def _docker_available() -> bool:
-    executable = shutil.which("docker")
+def _container_available(identifier: str) -> bool:
+    executable = shutil.which(identifier)
     if executable is None:
         return False
+    command = [executable, "info", "--format", "{{.ServerVersion}}"] if identifier == "docker" else [executable, "info", "--format", "{{.Version.Version}}"]
     try:
-        result = subprocess.run([executable, "info", "--format", "{{.ServerVersion}}"], capture_output=True, text=True, timeout=5, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=5, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0 and bool(result.stdout.strip())
@@ -64,7 +65,10 @@ def _docker_image() -> str:
 def discover_sandboxes() -> list[SandboxBackend]:
     """Report real backend availability without running a candidate command."""
 
-    return [SandboxBackend("docker", _docker_available(), "Docker daemon with no-network container support")]
+    return [
+        SandboxBackend("docker", _container_available("docker"), "Docker Engine or Docker Desktop with no-network container support"),
+        SandboxBackend("podman", _container_available("podman"), "Podman machine/service with no-network container support"),
+    ]
 
 
 def sandbox_report() -> list[dict[str, object]]:
@@ -77,18 +81,20 @@ def select_sandbox() -> SandboxBackend:
     """Select the preferred executable backend or fail before candidate execution."""
 
     available = {backend.identifier: backend for backend in discover_sandboxes() if backend.available}
-    if "docker" in available:
+    for identifier in ("docker", "podman"):
+        if identifier not in available:
+            continue
         _docker_image()
-        return available["docker"]
-    raise PolicyError("No supported sandbox backend is available; start Docker before dynamic validation")
+        return available[identifier]
+    raise PolicyError("No supported sandbox backend is available; start Docker Desktop, Docker Engine, or Podman before dynamic validation")
 
 
-def _run_docker(root: Path, command: list[str], timeout: int) -> SandboxResult:
-    executable = shutil.which("docker")
-    if executable is None or not _docker_available():
-        raise PolicyError("Docker sandbox is unavailable")
+def _run_container(backend: SandboxBackend, root: Path, command: list[str], timeout: int) -> SandboxResult:
+    executable = shutil.which(backend.identifier)
+    if executable is None or not _container_available(backend.identifier):
+        raise PolicyError(f"{backend.identifier} sandbox is unavailable")
     image = _docker_image()
-    docker_command = [
+    container_command = [
         executable,
         "run",
         "--rm",
@@ -105,10 +111,10 @@ def _run_docker(root: Path, command: list[str], timeout: int) -> SandboxResult:
         *command,
     ]
     try:
-        result = subprocess.run(docker_command, capture_output=True, text=True, timeout=timeout, check=False)
+        result = subprocess.run(container_command, capture_output=True, text=True, timeout=timeout, check=False)
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise PolicyError(f"Docker sandbox validation failed: {error}") from error
-    return SandboxResult("docker", result.returncode, result.stdout[-4000:], result.stderr[-4000:])
+        raise PolicyError(f"{backend.identifier} sandbox validation failed: {error}") from error
+    return SandboxResult(backend.identifier, result.returncode, result.stdout[-4000:], result.stderr[-4000:])
 
 
 def run_sandboxed(root: Path, command: list[str], backend: SandboxBackend | None = None) -> SandboxResult:
@@ -122,6 +128,6 @@ def run_sandboxed(root: Path, command: list[str], backend: SandboxBackend | None
     if not selected.available:
         raise PolicyError(f"Sandbox backend is unavailable: {selected.identifier}")
     timeout = _timeout()
-    if selected.identifier == "docker":
-        return _run_docker(root, command, timeout)
+    if selected.identifier in {"docker", "podman"}:
+        return _run_container(selected, root, command, timeout)
     raise ValidationError(f"Unsupported sandbox backend: {selected.identifier}")

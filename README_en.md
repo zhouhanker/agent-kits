@@ -58,10 +58,11 @@ kitcli catalog list
 
 ## Validate Sources With A Local Agent
 
-Dynamic installation validation requires a locally installed and authenticated
-Codex CLI or Claude Code, plus a running Docker daemon. The local Agent selects
-and bills its own model; `kitcli` does not provide a model, store tokens, or run
-commands embedded in source Markdown.
+Dynamic installation validation requires a usable analysis provider: a locally
+authenticated Codex CLI or Claude Code, or an OpenAI-compatible `model-api`
+configured in `env.toml`. It also requires Docker or Podman. The local Agent or
+API account selects and bills its own model; `kitcli` does not provide a model
+or run commands embedded in source Markdown.
 
 Claude Code defaults to subscription-compatible authentication. To explicitly
 use the API-key-only mode without user configuration, set
@@ -73,6 +74,26 @@ When `kitcli agents check` fails, it retains actionable Agent diagnostics while
 redacting API-key-shaped values. Authentication, subscription, quota, or
 third-party Agent-provider rejections must be corrected in that Agent; `kitcli`
 does not modify login state or replace credentials.
+
+`env.toml` is local-only and Git-ignored. The existing DeepSeek-style form is
+supported; prefer an environment-variable reference over storing the key in the
+file:
+
+```toml
+[model]
+model.name = "deepseek-v4-flash"
+model.api.url = "https://api.deepseek.com"
+model.api.key_env = "DEEPSEEK_API_KEY"
+```
+
+The model API is called on the host. Docker/Podman never receive the API key and
+remain on `--network none`; this avoids granting an untrusted container network
+access and a long-lived credential:
+
+```bash
+kitcli agents check --agent model-api
+kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent model-api --scope user
+```
 
 See [dynamic Agent validation troubleshooting](docs/guides/DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md)
 for prerequisite checks, no-install acceptance, and MCP/skill admission rules.
@@ -99,6 +120,7 @@ does not install or modify client configuration:
 ```bash
 kitcli agents check --agent codex
 kitcli agents check --agent claude-code
+kitcli agents check --agent model-api
 ```
 
 Run full intake for a local document or HTTPS URL. It performs static checks,

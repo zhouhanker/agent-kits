@@ -54,9 +54,10 @@ kitcli catalog list
 
 ## 使用本机 Agent 验证来源
 
-`kitcli` 的动态安装验证要求本机已安装并登录 Codex CLI 或 Claude Code，并要求 Docker
-daemon 正在运行。模型由本机 Agent 自己选择和计费；`kitcli` 不提供模型、不保存 token，
-也不会执行来源 Markdown 中的命令。
+`kitcli` 的动态安装验证需要一个可用的分析提供方：本机已登录的 Codex CLI、Claude Code，
+或 `env.toml` 中配置的 OpenAI-compatible `model-api`。还需要 Docker 或 Podman 容器
+运行时。模型由本机 Agent 或 API 账户自己选择和计费；`kitcli` 不提供模型，也不会执行
+来源 Markdown 中的命令。
 
 Claude Code 默认兼容订阅登录；需要显式使用 `ANTHROPIC_API_KEY` 的无用户配置模式时，设置
 `AGENT_KITS_CLAUDE_CODE_MODE=api-key`。也可设置为 `subscription` 强制使用订阅登录，或保留
@@ -65,6 +66,24 @@ Claude Code 默认兼容订阅登录；需要显式使用 `ANTHROPIC_API_KEY` �
 `kitcli agents check` 若失败会保留 Agent 返回的可操作诊断并脱敏 API-key 形式的内容。
 认证、订阅、额度或第三方 Agent 提供方拒绝请求时，必须先修复该 Agent；`kitcli` 不会尝试
 修改登录态或替换凭据。
+
+`env.toml` 是本地私密文件，已被 Git 忽略。当前 DeepSeek 风格配置兼容以下格式；可将
+`model.api.key` 改为更安全的 `model.api.key_env = "DEEPSEEK_API_KEY"`：
+
+```toml
+[model]
+model.name = "deepseek-v4-flash"
+model.api.url = "https://api.deepseek.com"
+model.api.key_env = "DEEPSEEK_API_KEY"
+```
+
+模型 API 在宿主机上调用，Docker/Podman 不接收 API key，且持续使用 `--network none`。
+这比让容器持有长期凭据并放开网络更安全：
+
+```bash
+kitcli agents check --agent model-api
+kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent model-api --scope user
+```
 
 完整的前置检查、无安装验收和 MCP/Skill 准入要求见
 [`动态 Agent 验证排障与验收`](docs/guides/DYNAMIC_AGENT_VALIDATION_TROUBLESHOOTING.md)。
@@ -90,6 +109,7 @@ Codex 或 Claude Code 账户的一次受限模型调用，但不接收外部来�
 ```bash
 kitcli agents check --agent codex
 kitcli agents check --agent claude-code
+kitcli agents check --agent model-api
 ```
 
 对本地文档或 HTTPS 链接进行完整 intake。该命令先做静态检查，再用本机 Agent 生成受限

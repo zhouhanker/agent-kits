@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from agent_kits.domain.errors import PolicyError, ValidationError
+from agent_kits.infrastructure.model_provider import call_model, load_model_provider
 
 DEFAULT_ANALYSIS_TIMEOUT_SECONDS = 180
 MAX_ANALYSIS_SOURCE_BYTES = 2 * 1024 * 1024
+MODEL_API_IDENTIFIER = "model-api"
 CAPABILITY_PROBE_SOURCE = "agent-kits://capability-probe"
 CAPABILITY_PROBE_CONTENT = (
     b"# Local Agent capability probe\n\n"
@@ -281,6 +283,18 @@ def analyze_source(agent: LocalAgent, source: str, content: bytes) -> AgentAnaly
     return _validate_analysis(result, agent.identifier)
 
 
+def analyze_model_api(repository: Path, source: str, content: bytes) -> AgentAnalysis:
+    """Classify a source using the configured host-side model API."""
+
+    prompt = (
+        f"{_analysis_prompt(source, content)}\n"
+        "Return one JSON object matching this schema exactly, with no additional fields:\n"
+        f"{json.dumps(ANALYSIS_SCHEMA, sort_keys=True)}"
+    )
+    result = call_model(load_model_provider(repository), prompt)
+    return _validate_analysis(result, MODEL_API_IDENTIFIER)
+
+
 def check_agent_capability(identifier: str) -> dict[str, object]:
     """Prove that one configured local Agent can complete a constrained model call.
 
@@ -296,6 +310,22 @@ def check_agent_capability(identifier: str) -> dict[str, object]:
     return {
         "agent": agent.identifier,
         "executable": agent.executable,
+        "model_access": "available",
+        "analysis": asdict(analysis),
+    }
+
+
+def check_model_api(repository: Path) -> dict[str, object]:
+    """Prove model-API access using the same constrained probe as source intake."""
+
+    analysis = analyze_model_api(repository, CAPABILITY_PROBE_SOURCE, CAPABILITY_PROBE_CONTENT)
+    if analysis.kind != "unsupported":
+        raise ValidationError("Model API capability probe returned an unexpected classification")
+    provider = load_model_provider(repository)
+    return {
+        "agent": MODEL_API_IDENTIFIER,
+        "endpoint": provider.endpoint,
+        "model": provider.model,
         "model_access": "available",
         "analysis": asdict(analysis),
     }

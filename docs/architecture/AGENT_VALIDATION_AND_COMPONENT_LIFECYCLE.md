@@ -17,11 +17,12 @@ Supported V2 adapters are:
 | Adapter | Semantic analysis | Client acceptance | Notes |
 | --- | --- | --- | --- |
 | Codex CLI | `codex exec` with structured output and a read-only workspace | Codex component validation | Uses the user's Codex authentication and selected model. |
-| Claude Code | `claude --print --bare` with no tools and structured output | Claude Code component validation | Uses the user's Claude Code authentication and selected model. |
+| Claude Code | `claude --print` with no tools and structured output | Claude Code component validation | Uses the user's Claude Code authentication and selected model; API-key mode additionally uses `--bare`. |
+| `model-api` | Host-side OpenAI-compatible JSON request from local `env.toml` | No client acceptance; semantic analysis only | API key remains on the host and is never mounted into a sandbox. |
 
 `kitcli` does not configure, provide, select, or pay for a foundation model.
-The selected local Agent remains responsible for its own login, model, quota,
-and provider policy.
+The selected local Agent or model API account remains responsible for its own
+login, model, quota, and provider policy.
 
 `kitcli agents list` is deliberately a zero-cost executable discovery command;
 it does not prove login or model access. `kitcli agents check --agent <id>` is
@@ -72,6 +73,7 @@ arbitrary document.
 ```text
 kitcli agents list
 kitcli agents check --agent auto|codex|claude-code
+kitcli agents check --agent model-api
 kitcli source inspect --file PATH|--url HTTPS_URL
 kitcli source import --file PATH|--url HTTPS_URL --as document|bundle
 kitcli source --file PATH|--url HTTPS_URL [--agent auto|codex|claude-code]
@@ -99,7 +101,8 @@ The execution backend must be selected explicitly by platform capability:
 
 | Backend | Platforms | Intended use |
 | --- | --- | --- |
-| Docker | macOS, Linux, Windows | Preferred portable dynamic verifier; digest-pinned image, no host home, no host credentials, no default network. |
+| Docker Engine/Desktop | macOS, Linux, Windows | Preferred portable dynamic verifier; digest-pinned image, no host home, no host credentials, no default network. Windows Desktop normally uses WSL2 for Linux containers. |
+| Podman | macOS, Linux, Windows | Compatible fallback; uses a Podman machine/service on macOS and Windows, commonly WSL2-backed on Windows. |
 | None | all | Static gate and Agent analysis only. Dynamic validation fails closed. |
 
 `codex sandbox` is an internal executor interface that requires an existing
@@ -112,6 +115,14 @@ tool permissions and Codex read-only mode constrain an Agent, but they do not
 isolate an arbitrary installer process. A source requiring commands outside the
 available sandbox policy remains `review_required` and cannot offer global
 installation.
+
+The model API is intentionally not called from the validation container. Putting
+a long-lived API key in a container and enabling egress would make it a
+credential-bearing network client, weakening the isolation boundary. V2 calls
+the configured model on the host, then validates only reviewed component payload
+under no-network Docker/Podman. A future networked recipe needs a separate
+egress proxy, short-lived scoped credential, provider allowlist, and explicit
+manifest declaration.
 
 ## Component Rules
 

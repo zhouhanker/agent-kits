@@ -16,6 +16,8 @@ from unittest import mock
 from agent_kits.application.service import run_component_create, run_install, run_source_intake, run_update_cli
 from agent_kits.infrastructure.agents import AgentAnalysis, LocalAgent, _agent_failure_message, _claude_command
 from agent_kits.infrastructure.components import luna_candidate_sha256, luna_source_sha256
+from agent_kits.infrastructure.model_provider import model_provider_report
+from agent_kits.infrastructure.sandbox import SandboxBackend, select_sandbox
 from agent_kits.infrastructure.state import state_file, write_json_atomic
 from agent_kits.cli.main import main
 from agent_kits.domain.errors import ConflictError, PolicyError
@@ -133,6 +135,7 @@ class CliTestCase(unittest.TestCase):
         code, result, _, _ = self.invoke("agents", "list")
         self.assertEqual(code, 0)
         self.assertIn("agents", result["data"])
+        self.assertIn("models", result["data"])
         self.assertIn("sandboxes", result["data"])
         self.assertTrue(all(agent["model_access"] == "not_checked" for agent in result["data"]["agents"]))
 
@@ -166,6 +169,49 @@ class CliTestCase(unittest.TestCase):
     def test_agent_failure_message_prefers_structured_error_and_redacts_key(self) -> None:
         stdout = json.dumps({"result": "Request rejected for sk-secret_value"})
         self.assertEqual(_agent_failure_message("ignored", stdout), "Request rejected for sk-***")
+
+    def test_model_provider_supports_local_deepseek_style_configuration(self) -> None:
+        config = self.project / "model.toml"
+        config.write_text(
+            "[model]\nmodel.name = \"deepseek-chat\"\nmodel.api.url = \"https://models.example/v1\"\nmodel.api.key_env = \"TEST_MODEL_KEY\"\n",
+            encoding="utf-8",
+        )
+        os.environ["AGENT_KITS_MODEL_CONFIG"] = str(config)
+        os.environ["TEST_MODEL_KEY"] = "test-secret"
+        report = model_provider_report(REPOSITORY)
+        self.assertTrue(report["available"])
+        self.assertEqual(report["endpoint"], "https://models.example/v1/chat/completions")
+        self.assertNotIn("test-secret", str(report))
+
+    def test_model_api_luna_intake_records_model_api_in_receipt(self) -> None:
+        guide = REPOSITORY / "docs" / "CODEX_LUNA_WORKER_SETUP.md"
+        with mock.patch("agent_kits.application.service.select_sandbox"), mock.patch(
+            "agent_kits.application.service.analyze_model_api",
+            return_value=AgentAnalysis("model-api", "codex_subagent", "Luna setup guide", "high", True),
+        ), mock.patch(
+            "agent_kits.application.service.validate_luna_worker",
+            return_value={"receipt_id": "validated", "component_id": "luna-worker", "status": "validated"},
+        ) as validate:
+            result = run_source_intake(REPOSITORY, str(guide), "model-api", "user", self.project)
+        self.assertTrue(result["installable"])
+        self.assertEqual(validate.call_args.args[2], "model-api")
+
+    def test_model_api_analysis_includes_the_required_json_schema(self) -> None:
+        with mock.patch("agent_kits.infrastructure.agents.load_model_provider"), mock.patch(
+            "agent_kits.infrastructure.agents.call_model",
+            return_value={"kind": "unsupported", "summary": "Probe", "risk": "low", "requires_dynamic_validation": False},
+        ) as call:
+            from agent_kits.infrastructure.agents import analyze_model_api
+
+            analysis = analyze_model_api(REPOSITORY, "source", b"content")
+        self.assertEqual(analysis.agent, "model-api")
+        self.assertIn('"requires_dynamic_validation"', call.call_args.args[1])
+
+    def test_podman_is_selected_when_docker_is_unavailable(self) -> None:
+        os.environ["AGENT_KITS_SANDBOX_IMAGE"] = "registry.example/python@sha256:" + "a" * 64
+        with mock.patch("agent_kits.infrastructure.sandbox._container_available", side_effect=lambda name: name == "podman"):
+            backend = select_sandbox()
+        self.assertEqual(backend.identifier, "podman")
 
     def test_luna_install_requires_validation_receipt(self) -> None:
         code, result, _, _ = self.invoke("install", "luna-worker", "--scope", "user", "--yes")

@@ -1,0 +1,8 @@
+[model]
+# `env.toml` is local-only. It may use model.api.key, but an environment-variable
+# reference is preferred so the secret never lives in a file.
+model.name = "deepseek-v4-flash"
+model.api.url = "https://api.deepseek.com"
+model.api.key_env = "DEEPSEEK_API_KEY"
+model.timeout_seconds = 60
+model.json_mode = true

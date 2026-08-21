@@ -23,7 +23,15 @@ from typing import Any
 from agent_kits import __version__
 from agent_kits.domain.errors import ConflictError, NotFoundError, PolicyError, ValidationError
 from agent_kits.domain.manifest import load_kit_manifest
-from agent_kits.infrastructure.agents import agent_report, analyze_source, check_agent_capability, select_agent
+from agent_kits.infrastructure.agents import (
+    MODEL_API_IDENTIFIER,
+    agent_report,
+    analyze_model_api,
+    analyze_source,
+    check_agent_capability,
+    check_model_api,
+    select_agent,
+)
 from agent_kits.infrastructure.components import luna_candidate_sha256, luna_source_sha256, source_component, validate_luna_worker
 from agent_kits.infrastructure.paths import (
     doctor_report,
@@ -40,6 +48,7 @@ from agent_kits.infrastructure.repository import (
     load_repository_profile,
 )
 from agent_kits.infrastructure.sandbox import sandbox_report, select_sandbox
+from agent_kits.infrastructure.model_provider import model_provider_report
 from agent_kits.infrastructure.sources import inspect_source, quarantine_source, read_inspected_source
 from agent_kits.infrastructure.state import (
     canonical_json,
@@ -199,20 +208,21 @@ def run_doctor(repository: Path, project_root: Path) -> dict[str, Any]:
         "state_root": report.state_root,
         "clients": report.clients,
         "agents": agent_report(),
+        "models": [model_provider_report(repository)],
         "sandboxes": sandbox_report(),
     }
 
 
-def run_agents_list() -> dict[str, Any]:
+def run_agents_list(repository: Path) -> dict[str, Any]:
     """List local Agent and sandbox prerequisites without model invocation."""
 
-    return {"agents": agent_report(), "sandboxes": sandbox_report()}
+    return {"agents": agent_report(), "models": [model_provider_report(repository)], "sandboxes": sandbox_report()}
 
 
-def run_agents_check(agent_identifier: str) -> dict[str, Any]:
+def run_agents_check(repository: Path, agent_identifier: str) -> dict[str, Any]:
     """Run an explicit, metered local-Agent capability probe."""
 
-    return check_agent_capability(agent_identifier)
+    return check_model_api(repository) if agent_identifier == MODEL_API_IDENTIFIER else check_agent_capability(agent_identifier)
 
 
 def run_catalog_list(repository: Path) -> dict[str, Any]:
@@ -244,8 +254,11 @@ def run_source_intake(
     # Dynamic validation is mandatory for Agent-driven intake. Check before
     # invoking a metered local Agent so unavailable isolation has no model cost.
     select_sandbox()
-    agent = select_agent(agent_identifier)
-    analysis = analyze_source(agent, source, content)
+    if agent_identifier == MODEL_API_IDENTIFIER:
+        analysis = analyze_model_api(repository, source, content)
+    else:
+        agent = select_agent(agent_identifier)
+        analysis = analyze_source(agent, source, content)
     component_id = source_component(repository, source, inspection.sha256, analysis.kind)
     result: dict[str, Any] = {
         "inspection": _json_target(inspection.__dict__),
@@ -256,7 +269,7 @@ def run_source_intake(
     if component_id == "luna-worker":
         if scope != "user":
             raise PolicyError("The Luna worker component supports user scope only")
-        receipt = validate_luna_worker(repository, inspection.sha256, agent.identifier, _state_root(scope, project_root))
+        receipt = validate_luna_worker(repository, inspection.sha256, analysis.agent, _state_root(scope, project_root))
         result["validation"] = receipt
         result["installable"] = True
     return result
