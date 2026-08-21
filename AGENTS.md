@@ -72,7 +72,7 @@
   `docs/implementation/CLI_V1_IMPLEMENTATION_PLAN.md`.
 - Next node: evaluate real non-macOS devices, real macOS client loading,
   upstream gateway Release readiness, and branch protection. The supported
-  OS/Python CI matrix and official `v0.1.4` installer E2E are complete.
+  OS/Python CI matrix and official `v0.1.5` installer E2E are complete.
   Repository/source `update check` is read-only; the official isolated
   installer supports explicit `kitcli update --check` / `kitcli update --yes`
   for the CLI only. No device configuration is changed by that operation.
@@ -83,7 +83,7 @@
   compatibility link.
 - Global distribution: the official installer scripts are under `scripts/` and
   the tagged Release workflow is `.github/workflows/release.yml`. Release
-  `v0.1.4` is the current verified installer reference. Windows remains CI-only
+  `v0.1.5` is the current verified installer reference. Windows remains CI-only
   until a real Windows host is tested.
 - Blocking conditions: work-device policy and upstream gateway Release remain
   external gates, but do not block the local V1 CLI foundation.
@@ -92,7 +92,7 @@
 ## Continuation Checkpoint 2026-08-21
 
 - Current node: the local user installation has been replaced by the official
-  checksum-verified `v0.1.4` Release installer.
+  checksum-verified `v0.1.5` Release installer.
 - Verified entry points: `~/.local/bin/kitcli` and the `agent-kits`
   compatibility alias; metadata is in `~/.local/share/kitcli/install.json`.
 - Verified operations: catalog JSON, doctor, `update --check`, `update --yes`,

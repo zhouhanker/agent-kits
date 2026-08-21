@@ -1,0 +1,8 @@
+schema_version = 1
+
+[[components]]
+id = "luna-worker"
+kit = "luna-worker"
+aliases = ["CODEX_LUNA_WORKER_SETUP", "CODEX_LUNA_WORKER_SETUP.md"]
+scopes = ["user"]
+validator = "luna-worker"

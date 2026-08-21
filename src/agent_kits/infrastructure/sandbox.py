@@ -55,10 +55,10 @@ def _container_available(identifier: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
-def _docker_image() -> str:
+def _sandbox_image() -> str:
     image = os.environ.get("AGENT_KITS_SANDBOX_IMAGE", "")
     if not image or "@sha256:" not in image or any(character.isspace() for character in image):
-        raise PolicyError("AGENT_KITS_SANDBOX_IMAGE must be a digest-pinned Docker image")
+        raise PolicyError("AGENT_KITS_SANDBOX_IMAGE must be a digest-pinned container image")
     return image
 
 
@@ -84,7 +84,7 @@ def select_sandbox() -> SandboxBackend:
     for identifier in ("docker", "podman"):
         if identifier not in available:
             continue
-        _docker_image()
+        _sandbox_image()
         return available[identifier]
     raise PolicyError("No supported sandbox backend is available; start Docker Desktop, Docker Engine, or Podman before dynamic validation")
 
@@ -93,7 +93,7 @@ def _run_container(backend: SandboxBackend, root: Path, command: list[str], time
     executable = shutil.which(backend.identifier)
     if executable is None or not _container_available(backend.identifier):
         raise PolicyError(f"{backend.identifier} sandbox is unavailable")
-    image = _docker_image()
+    image = _sandbox_image()
     container_command = [
         executable,
         "run",

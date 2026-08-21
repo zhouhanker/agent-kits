@@ -95,11 +95,13 @@ kitcli --json --non-interactive source \
 
 ## 5. 其他设备复用
 
-只有 source digest、candidate digest 和 sandbox receipt 都与已审 catalog 对应时，才可：
+只有 source digest、candidate digest 和 sandbox receipt 都与已审 catalog 对应，且组件已在
+`catalog/components.toml` 登记时，才可：
 
 ```bash
 kitcli install <component-id> --scope user
 ```
 
-接收设备仍必须满足组件自身的 Agent、Docker、平台和客户端版本条件。`install` 只写
-manifest 允许的目标路径，并继续使用 `plan/apply/verify/rollback` 的 receipt 机制。
+接收设备仍必须满足组件自身的分析提供方、Docker/Podman、平台和客户端版本条件。`install`
+只接受组件注册表中的 ID，写入 manifest 允许的目标路径，并继续使用
+`plan/apply/verify/rollback` 的 receipt 机制。普通 catalog kit 必须显式走 `plan -> apply`。

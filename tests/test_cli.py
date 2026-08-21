@@ -219,6 +219,12 @@ class CliTestCase(unittest.TestCase):
         self.assertIn("validation receipt", result["error"]["message"])
         self.assertFalse((self.codex / "agents" / "luna-worker.toml").exists())
 
+    def test_install_rejects_an_ordinary_catalog_kit(self) -> None:
+        code, result, _, _ = self.invoke("install", "base", "--scope", "project", "--yes")
+        self.assertEqual(code, 3)
+        self.assertIn("Unknown reusable component", result["error"]["message"])
+        self.assertFalse((self.project / "AGENTS.md").exists())
+
     def test_luna_install_applies_only_to_isolated_user_root_after_receipt(self) -> None:
         receipt = {
             "schema_version": 1,
@@ -231,8 +237,9 @@ class CliTestCase(unittest.TestCase):
             "status": "validated",
         }
         write_json_atomic(state_file(self.state / "user", "validations", receipt["receipt_id"]), receipt)
-        result = run_install(REPOSITORY, self.project, "luna-worker", "user", True)
+        result = run_install(REPOSITORY, self.project, "CODEX_LUNA_WORKER_SETUP", "user", True)
         self.assertTrue(result["installed"])
+        self.assertEqual(result["component_id"], "luna-worker")
         self.assertTrue((self.codex / "agents" / "luna-worker.toml").is_file())
         self.assertTrue((self.codex / "hooks" / "enforce-luna-worker.py").is_file())
         self.assertIn("agent-kits:luna-worker", (self.codex / "hooks.json").read_text(encoding="utf-8"))

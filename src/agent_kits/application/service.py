@@ -22,7 +22,6 @@ from typing import Any
 
 from agent_kits import __version__
 from agent_kits.domain.errors import ConflictError, NotFoundError, PolicyError, ValidationError
-from agent_kits.domain.manifest import load_kit_manifest
 from agent_kits.infrastructure.agents import (
     MODEL_API_IDENTIFIER,
     agent_report,
@@ -46,6 +45,7 @@ from agent_kits.infrastructure.repository import (
     list_source_locks,
     load_kit,
     load_repository_profile,
+    resolve_component,
 )
 from agent_kits.infrastructure.sandbox import sandbox_report, select_sandbox
 from agent_kits.infrastructure.model_provider import model_provider_report
@@ -306,9 +306,9 @@ def run_component_create(
     return {"candidate": candidate, "path": str(candidate_path), "installable": bool(intake.get("installable"))}
 
 
-def _validated_component(repository: Path, component_id: str, state_root: Path) -> bool:
-    if component_id != "luna-worker":
-        return True
+def _validated_component(repository: Path, component_id: str, validator: str, state_root: Path) -> bool:
+    if validator != "luna-worker":
+        raise ValidationError(f"Unsupported component validator: {validator}")
     candidate_sha256 = luna_candidate_sha256(repository)
     source_sha256 = luna_source_sha256(repository)
     validation_root = state_root / "validations"
@@ -331,16 +331,17 @@ def run_install(
 ) -> dict[str, Any]:
     """Install a reviewed component through the existing plan/apply transaction."""
 
-    aliases = {"CODEX_LUNA_WORKER_SETUP": "luna-worker", "CODEX_LUNA_WORKER_SETUP.md": "luna-worker"}
-    normalized_id = aliases.get(component_id, component_id)
+    component = resolve_component(repository, component_id)
+    if scope not in component.scopes:
+        raise PolicyError(f"Component {component.identifier} does not support {scope} scope")
     state_root = _state_root(scope, project_root)
-    if not _validated_component(repository, normalized_id, state_root):
-        raise PolicyError(f"Component {normalized_id} needs a current sandbox validation receipt before installation")
-    plan = run_plan(repository, project_root, normalized_id, scope, None, None)
+    if not _validated_component(repository, component.identifier, component.validator, state_root):
+        raise PolicyError(f"Component {component.identifier} needs a current sandbox validation receipt before installation")
+    plan = run_plan(repository, project_root, component.kit_id, scope, None, None)
     if not confirm:
-        return {"component_id": normalized_id, "plan": plan, "installed": False}
+        return {"component_id": component.identifier, "plan": plan, "installed": False}
     receipt = run_apply(plan["plan_id"], scope, project_root, True)
-    return {"component_id": normalized_id, "plan": plan, "receipt": receipt, "installed": True}
+    return {"component_id": component.identifier, "plan": plan, "receipt": receipt, "installed": True}
 
 
 def run_update_check(repository: Path, project_root: Path, target: str) -> dict[str, Any]:

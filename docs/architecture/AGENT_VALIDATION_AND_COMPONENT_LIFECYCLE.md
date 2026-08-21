@@ -76,21 +76,25 @@ kitcli agents check --agent auto|codex|claude-code
 kitcli agents check --agent model-api
 kitcli source inspect --file PATH|--url HTTPS_URL
 kitcli source import --file PATH|--url HTTPS_URL --as document|bundle
-kitcli source --file PATH|--url HTTPS_URL [--agent auto|codex|claude-code]
-kitcli component create --source PATH --id COMPONENT_ID [--agent ...]
+kitcli source intake --file PATH|--url HTTPS_URL [--agent auto|codex|claude-code|model-api]
+kitcli source --file PATH|--url HTTPS_URL [--agent auto|codex|claude-code|model-api]
+kitcli component create --file PATH|--url HTTPS_URL --id COMPONENT_ID [--agent ...]
 kitcli install COMPONENT_ID --scope user|project [--yes]
 ```
 
 `kitcli source --file` and `kitcli source --url` are the user-facing intake
-commands. They perform static inspection, require a supported local Agent,
-produce a local candidate and sandbox receipt, then prompt before installation.
-They do not execute source Markdown verbatim.
+commands. They perform static inspection, require a selected supported analysis
+provider, and create a validation receipt for a known reviewed component before
+prompting for installation. They do not execute source Markdown verbatim.
+Direct intake returns its evidence but does not persist a candidate file.
 
 `kitcli component create` is the safe replacement for the proposed
 `kitcli apply PATH`: it uses an Agent to produce a structured, reviewable
-component candidate in the repository and does not alter the user's client
+component candidate in project state and does not alter the user's client
 configuration. `kitcli install` resolves a reviewed component into the existing
-plan/apply/verify transaction model.
+plan/apply/verify transaction model. It accepts only IDs declared in the
+source-controlled component registry; ordinary catalog kits must use `plan`
+and `apply` directly.
 
 The V1 `source inspect` and `source import` commands remain available for
 evidence capture without an Agent or model invocation.
@@ -126,6 +130,10 @@ manifest declaration.
 
 ## Component Rules
 
+- `catalog/components.toml` is the source-controlled registry of reusable
+  component IDs, compatibility aliases, permitted scopes, backing kit IDs, and
+  fixed validator identifiers. Adding a component requires a reviewed registry
+  entry, manifest, payload, and validator recipe.
 - A Markdown document is evidence, not an executable package.
 - The Agent output must be JSON validated against a local schema. It may
   describe files, target client, required capabilities, and a finite validation

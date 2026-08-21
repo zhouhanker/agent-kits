@@ -111,11 +111,11 @@ Check prerequisites:
 kitcli agents list
 ```
 
-`agents list` only finds executables on `PATH`; it does not test login or model
-access. To explicitly prove account, model, and structured-output access before
-intake, run one of the following commands. It consumes one constrained model
-call from that local Agent, but accepts no external source, uses no Docker, and
-does not install or modify client configuration:
+`agents list` only discovers local Agents and `model-api` configuration; it does
+not test login or model access. To explicitly prove account, model, and
+structured-output access before intake, run one of the following commands. It
+consumes one constrained call from the selected Agent or API account, accepts no
+external source, uses no Docker/Podman, and does not modify client configuration:
 
 ```bash
 kitcli agents check --agent codex
@@ -124,9 +124,9 @@ kitcli agents check --agent model-api
 ```
 
 Run full intake for a local document or HTTPS URL. It performs static checks,
-asks the local Agent for constrained JSON classification, and validates a
-reviewed component in a no-network Docker container without mounting the user
-home. Only after validation will it ask to install into the selected scope:
+asks the selected local Agent or `model-api` for constrained JSON classification,
+and validates a reviewed component in a no-network Docker/Podman container
+without mounting the user home. Only after validation will it ask to install:
 
 ```bash
 kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user
@@ -143,10 +143,10 @@ Without `--yes`, automation retains the validation receipt and returns
 `not_installed`. Answering `n` at an interactive prompt has the same behavior:
 it is not an installation error and does not modify global client configuration.
 
-If Docker is stopped, the image is not digest-pinned, no local Agent is available,
-no reviewed component matches the source, or dynamic validation fails, the command
-stops without executing source commands or installing anything. The Docker gate
-runs before model invocation during intake. Use `kitcli source inspect` and
+If Docker/Podman is stopped, the image is not digest-pinned, no analysis provider
+is available, no reviewed component matches the source, or validation fails, the
+command stops without executing source commands or installing anything. The sandbox
+gate runs before model invocation during intake. Use `kitcli source inspect` and
 `kitcli source import` when you only need source evidence without a model.
 
 To create a review candidate in the project without installing it to a local
@@ -178,8 +178,9 @@ kitcli verify --receipt <receipt-id> --scope project
 kitcli rollback --receipt <receipt-id> --scope project --yes
 ```
 
-Reusable components with a current sandbox receipt can be installed on another
-device. The first component is `luna-worker`:
+Only reusable components declared in `catalog/components.toml` and backed by a
+current sandbox receipt can be installed on another device. Ordinary kits must
+use `plan -> apply`; the first reusable component is `luna-worker`:
 
 ```bash
 kitcli install luna-worker --scope user
@@ -250,7 +251,7 @@ URL/file -> source inspect -> source import/quarantine
 - [Architecture review](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent validation and component lifecycle](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-The official `v0.1.4` installer and self-update flow are verified on macOS.
+The official `v0.1.5` installer and self-update flow are verified on macOS.
 The Windows installer has CI coverage but has not yet been verified on a real
 Windows device. The external Apple gateway remains manual-only until it has an
 immutable Release, artifact digest, license, and CI evidence.

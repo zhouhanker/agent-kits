@@ -7,8 +7,9 @@
 > 本指南说明如何把 GitHub 链接或 Markdown 指南导入 `agent-kits`，再提炼为
 > 可审核、可复用、可安装的 kit。导入文档永远不会直接执行其中的命令。
 
-V2 动态验证需要本机 Codex CLI 或 Claude Code，以及运行中的 Docker daemon。本机
-Agent 只负责语义分类和客户端验收；Docker 才负责受限执行。没有可用 sandbox 时，
+V2 动态验证需要 Codex CLI、Claude Code 或本地 `env.toml` 配置的 `model-api` 作为分析
+提供方，以及运行中的 Docker 或 Podman 容器运行时。Agent 或模型 API 只负责语义分类；
+容器运行时才负责受限执行。没有可用 sandbox 时，
 动态 intake 必须失败，不得降级为“已经验证”。具体边界见
 [`AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md`](../architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)。
 实际前置检查、错误归属和无安装验收步骤见
@@ -59,21 +60,21 @@ Claude 配置，也不会执行 Markdown 代码块。
 
 ```bash
 kitcli agents list
-kitcli agents check --agent codex
-kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user
+kitcli agents check --agent model-api
+kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent model-api --scope user
 kitcli source -url https://example.org/component.md --agent auto --scope user
 ```
 
 `agents list` 仅发现可执行文件，绝不调用模型。`agents check` 使用固定的、非安装测试
 材料确认一次真实的结构化模型调用，因此可能消耗本机 Agent 的额度；它不下载来源、不会
 进入 Docker，也不会写入客户端配置。完整 intake 仍会在 Docker 前置检查成功后才把真实
-来源交给本机 Agent。
+来源交给选定的本机 Agent 或 model API。
 
-若 Agent 可执行普通文本调用、但其认证或提供方拒绝结构化 JSON 调用，仍视为动态 intake
-不可用。此时先修复对应 Codex/Claude Code 的登录、订阅、额度、版本或提供方策略；不能将
-问题误判为来源、MCP、Skill 或 Docker sandbox 失败。
+若分析提供方无法完成结构化 JSON 调用，仍视为动态 intake 不可用。此时修复对应 Codex、
+Claude Code 或 model API 的认证、订阅、额度、版本或提供方策略；不能将问题误判为来源、
+MCP、Skill 或 sandbox 失败。
 
-该命令顺序固定为：静态 gate -> Docker sandbox 前置检查 -> 本机 Agent 受限 JSON
+该命令顺序固定为：静态 gate -> Docker/Podman sandbox 前置检查 -> 分析提供方受限 JSON
 分析 -> 已审核组件的无网络 sandbox 验证 -> 本地 receipt -> `y/N` 安装确认。
 `--non-interactive` 时，只有显式 `--yes` 才会安装。Agent 输出、Markdown 内容和
 沙箱成功退出都不能单独授权全局写入。未确认时 receipt 会保留，命令返回
@@ -81,7 +82,7 @@ kitcli source -url https://example.org/component.md --agent auto --scope user
 
 当前已实现的动态组件是 `luna-worker`，其来源必须精确匹配
 `docs/CODEX_LUNA_WORKER_SETUP.md` 的 SHA-256。MCP、Skill 和未知链接可以做静态
-记录，但在拥有受审 manifest、有限验证配方和 Docker receipt 前不能安装。
+记录，但在拥有受审 manifest、有限验证配方和 sandbox receipt 前不能安装。
 
 需要把来源整理为项目内候选而不安装时，使用：
 

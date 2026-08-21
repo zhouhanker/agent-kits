@@ -100,9 +100,11 @@ kitcli source import --file <path> --as document|bundle
 kitcli source import --url <https-url> --as document|bundle
 ```
 
-`source` 本身不执行动作；`inspect` 是静态检查，`import` 是 quarantine。不要设计
-`source -file <path>` 这种省略阶段的命令，也不要让来源参数隐式触发安装。CLI
-的用户入口固定为短命令 `kitcli`；发行包和 Python import 仍保持 `agent-kits`。
+V2 中 `source inspect` 是静态检查，`source import` 是 quarantine；`source intake`
+及其简写 `source -file <path>` / `source -url <url>` 是明确的动态 intake 动作。它必须
+经过 sandbox 前置检查、受限分析和已审核组件验证，且只有交互确认或 `--yes` 才会安装。
+CLI 的用户入口固定为短命令 `kitcli`；发行包和 Python import 仍保持 `agent-kits`。
+普通 kit 始终使用 `plan -> apply`，而 `install` 只接受组件注册表中 receipt-gated 的组件。
 
 `update check` 永远只读。`update all` 即使未来提供，也只能汇总可用更新，不能把
 CLI、仓库、外部来源和设备配置串成一次无人审查的写操作。

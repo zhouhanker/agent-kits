@@ -101,10 +101,10 @@ export AGENT_KITS_SANDBOX_IMAGE='registry.example/kitcli-python@sha256:<64-hex-d
 kitcli agents list
 ```
 
-`agents list` 只检查命令是否可在 `PATH` 中找到，不会触发登录或模型调用。需要在导入
-来源前确认账户、模型访问和结构化输出真正可用时，再显式执行下列命令；它会消耗当前
-Codex 或 Claude Code 账户的一次受限模型调用，但不接收外部来源、不使用 Docker，也不
-安装或修改任何客户端配置：
+`agents list` 只检查本机 Agent 与 `model-api` 配置是否可用，不会触发登录或模型调用。
+需要在导入来源前确认账户、模型访问和结构化输出真正可用时，再显式执行下列命令；它会
+消耗所选 Agent 或 API 账户的一次受限模型调用，但不接收外部来源、不使用 Docker/Podman，
+也不安装或修改任何客户端配置：
 
 ```bash
 kitcli agents check --agent codex
@@ -112,9 +112,9 @@ kitcli agents check --agent claude-code
 kitcli agents check --agent model-api
 ```
 
-对本地文档或 HTTPS 链接进行完整 intake。该命令先做静态检查，再用本机 Agent 生成受限
-JSON 分类，在无网络、无主目录挂载的 Docker 容器中验证已审核组件；验证成功后才询问是否
-安装到所选 scope：
+对本地文档或 HTTPS 链接进行完整 intake。该命令先做静态检查，再用选定的本机 Agent 或
+`model-api` 生成受限 JSON 分类，在无网络、无主目录挂载的 Docker/Podman 容器中验证已审核
+组件；验证成功后才询问是否安装到所选 scope：
 
 ```bash
 kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user
@@ -130,9 +130,9 @@ kitcli --non-interactive source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent 
 未传 `--yes` 的自动化，以及交互提示中回答 `n`，都会保留验证 receipt 并返回
 `not_installed`；不会把“未确认”报告成安装失败，也不会修改全局客户端配置。
 
-Docker 未启动、镜像未固定 digest、没有本机 Agent、来源没有可识别的受审组件，或动态验证
-失败时，命令会停止，不会调用模型执行来源命令，也不会安装任何内容。Docker 前置检查
-发生在 intake 的模型调用之前；只想记录来源而不调用模型时，继续使用 `kitcli source
+Docker/Podman 未启动、镜像未固定 digest、没有可用分析提供方、来源没有可识别的受审组件，
+或动态验证失败时，命令会停止，不会调用模型执行来源命令，也不会安装任何内容。sandbox
+前置检查发生在 intake 的模型调用之前；只想记录来源而不调用模型时，继续使用 `kitcli source
 inspect` 与 `kitcli source import`。
 
 需要把来源提炼成项目内可审核候选、但不安装到本机客户端时，使用：
@@ -162,8 +162,8 @@ kitcli verify --receipt <receipt-id> --scope project
 kitcli rollback --receipt <receipt-id> --scope project --yes
 ```
 
-已通过当前 sandbox receipt 的可复用组件可以在其他设备安装。当前第一个组件是
-`luna-worker`：
+只有 `catalog/components.toml` 中登记、且具有当前 sandbox receipt 的可复用组件可以在其他
+设备安装。普通 kit 必须使用 `plan -> apply`；当前第一个组件是 `luna-worker`：
 
 ```bash
 kitcli install luna-worker --scope user
@@ -232,6 +232,6 @@ URL/文件 -> source inspect -> source import/quarantine
 - [架构评审](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent 验证与组件生命周期](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-当前 `v0.1.4` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
+当前 `v0.1.5` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
 但尚未在真实 Windows 设备验证；外部 Apple 网关仍需不可变 Release、制品摘要、许可证
 和 CI 证据后才能进入无人值守安装。

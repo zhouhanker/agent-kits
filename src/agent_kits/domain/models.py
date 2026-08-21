@@ -33,6 +33,17 @@ class KitManifest:
 
 
 @dataclass(frozen=True)
+class ComponentDefinition:
+    """A receipt-gated reusable component backed by one catalog kit."""
+
+    identifier: str
+    kit_id: str
+    aliases: tuple[str, ...]
+    scopes: tuple[str, ...]
+    validator: str
+
+
+@dataclass(frozen=True)
 class Profile:
     """A non-sensitive selection of source-controlled kits."""
 

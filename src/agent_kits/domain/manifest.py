@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_kits.domain.errors import NotFoundError, ValidationError
-from agent_kits.domain.models import KitManifest, KitTarget, Profile, SourceLock
+from agent_kits.domain.models import ComponentDefinition, KitManifest, KitTarget, Profile, SourceLock
 
 IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
@@ -18,6 +18,7 @@ COMMIT_RE = re.compile(r"^[a-f0-9]{40}$")
 PLATFORMS = frozenset({"macos", "windows", "linux"})
 CLIENTS = frozenset({"codex", "claude-code"})
 SCOPES = frozenset({"project", "user"})
+COMPONENT_ALIAS_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,80}$")
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -164,6 +165,38 @@ def load_profile(path: Path) -> Profile:
     if not all(isinstance(kit, str) and IDENTIFIER_RE.fullmatch(kit) for kit in kits):
         raise ValidationError(f"{path}: profile.kits contains an invalid identifier")
     return Profile(identifier, description, kits)
+
+
+def load_component_definitions(path: Path) -> list[ComponentDefinition]:
+    """Load reusable component declarations without interpreting payload code."""
+
+    data = _read_toml(path)
+    if data.get("schema_version") != 1 or set(data) - {"schema_version", "components"}:
+        raise ValidationError(f"{path}: unsupported component registry schema")
+    entries = data.get("components")
+    if not isinstance(entries, list) or not entries:
+        raise ValidationError(f"{path}: components must be a non-empty array")
+    definitions: list[ComponentDefinition] = []
+    known_names: set[str] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or set(entry) - {"id", "kit", "aliases", "scopes", "validator"}:
+            raise ValidationError(f"{path}: components[{index}] has unsupported fields")
+        identifier = _validate_identifier(_required_string(entry, "id", path), "components.id", path)
+        kit_id = _validate_identifier(_required_string(entry, "kit", path), "components.kit", path)
+        validator = _validate_identifier(_required_string(entry, "validator", path), "components.validator", path)
+        aliases_raw = entry.get("aliases", [])
+        if not isinstance(aliases_raw, list) or not all(isinstance(alias, str) and COMPONENT_ALIAS_RE.fullmatch(alias) for alias in aliases_raw):
+            raise ValidationError(f"{path}: components[{index}].aliases contains an invalid alias")
+        aliases = tuple(aliases_raw)
+        scopes_raw = entry.get("scopes")
+        if not isinstance(scopes_raw, list) or not scopes_raw or not all(isinstance(scope, str) and scope in SCOPES for scope in scopes_raw):
+            raise ValidationError(f"{path}: components[{index}].scopes contains an unsupported scope")
+        names = (identifier, *aliases)
+        if len(set(names)) != len(names) or any(name in known_names for name in names):
+            raise ValidationError(f"{path}: component IDs and aliases must be unique")
+        known_names.update(names)
+        definitions.append(ComponentDefinition(identifier, kit_id, aliases, tuple(scopes_raw), validator))
+    return definitions
 
 
 def load_source_lock(path: Path) -> SourceLock:
