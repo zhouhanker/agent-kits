@@ -240,13 +240,13 @@ def run_update_cli(check_only: bool = False, yes: bool = False) -> dict[str, Any
         raise ValidationError("Installer metadata points to a missing Python executable")
     with tempfile.TemporaryDirectory(prefix="kitcli-update-") as temporary:
         directory = Path(temporary)
-        wheel = directory / "kitcli-update.whl"
-        checksums = directory / "SHA256SUMS"
-        _download_update_asset(wheel_url, wheel, 64 * 1024 * 1024)
-        _download_update_asset(checksum_url, checksums, 1024 * 1024)
         wheel_name = Path(urlparse(wheel_url).path).name
         if not wheel_name.startswith("agent_kits-") or not wheel_name.endswith("-py3-none-any.whl"):
             raise ValidationError("Update URL does not reference an agent-kits wheel")
+        wheel = directory / wheel_name
+        checksums = directory / "SHA256SUMS"
+        _download_update_asset(wheel_url, wheel, 64 * 1024 * 1024)
+        _download_update_asset(checksum_url, checksums, 1024 * 1024)
         digest = _verify_release_checksum(wheel, checksums, wheel_name)
         version = _wheel_version(wheel)
         current = __version__
