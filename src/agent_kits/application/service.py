@@ -229,9 +229,14 @@ def run_update_cli(check_only: bool = False, yes: bool = False) -> dict[str, Any
     install_root = metadata.get("install_root")
     if not isinstance(python_executable, str) or not isinstance(install_root, str):
         raise ValidationError("Installer metadata is missing its isolated Python root")
-    python_path = Path(python_executable).expanduser().resolve()
-    root_path = Path(install_root).expanduser().resolve()
-    if root_path not in python_path.parents or not python_path.is_file():
+    # A POSIX venv commonly stores ``bin/python`` as a symlink to the base
+    # interpreter. Validate the recorded path lexically inside the isolated
+    # root, while allowing that standard venv link to resolve outside it.
+    python_path = Path(python_executable).expanduser()
+    root_path = Path(install_root).expanduser()
+    python_absolute = Path(os.path.abspath(python_path))
+    root_absolute = Path(os.path.abspath(root_path))
+    if root_absolute not in python_absolute.parents or not python_path.is_file():
         raise ValidationError("Installer metadata points to a missing Python executable")
     with tempfile.TemporaryDirectory(prefix="kitcli-update-") as temporary:
         directory = Path(temporary)
