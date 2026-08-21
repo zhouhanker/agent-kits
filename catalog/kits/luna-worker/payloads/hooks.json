@@ -1,0 +1,16 @@
+{
+  "event": "PreToolUse",
+  "entries": [
+    {
+      "matcher": "^(Agent|spawn_agent)$",
+      "hooks": [
+        {
+          "command": "{{python}} {{client_root}}/hooks/enforce-luna-worker.py",
+          "statusMessage": "agent-kits:luna-worker",
+          "timeout": 5,
+          "type": "command"
+        }
+      ]
+    }
+  ]
+}

@@ -112,16 +112,29 @@ def _zip_safety(content: bytes) -> bool:
     return True
 
 
-def inspect_source(source: str, max_bytes: int = MAX_SOURCE_BYTES) -> SourceInspection:
-    """Inspect source bytes without executing or importing them."""
+def _inspection(source: str, content: bytes, content_type: str | None, source_type: str) -> SourceInspection:
+    """Derive stable inspection facts from bytes already accepted by source policy."""
 
-    content, content_type, source_type = read_source(source, max_bytes)
     suffix = Path(source.split("?", 1)[0]).suffix.lower()
     markdown = suffix in {".md", ".markdown"} or content.lstrip().startswith((b"# ", b"## "))
     zip_safe: bool | None = None
     if suffix in {".zip", ".whl"} or content[:4] == b"PK\x03\x04":
         zip_safe = _zip_safety(content)
     return SourceInspection(source, source_type, len(content), _digest(content), content_type, markdown, zip_safe)
+
+
+def read_inspected_source(source: str, max_bytes: int = MAX_SOURCE_BYTES) -> tuple[bytes, SourceInspection]:
+    """Read and inspect exactly one source version to avoid source/digest races."""
+
+    content, content_type, source_type = read_source(source, max_bytes)
+    return content, _inspection(source, content, content_type, source_type)
+
+
+def inspect_source(source: str, max_bytes: int = MAX_SOURCE_BYTES) -> SourceInspection:
+    """Inspect source bytes without executing or importing them."""
+
+    _, inspection = read_inspected_source(source, max_bytes)
+    return inspection
 
 
 def quarantine_source(

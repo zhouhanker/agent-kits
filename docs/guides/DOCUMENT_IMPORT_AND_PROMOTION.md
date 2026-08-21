@@ -1,11 +1,16 @@
 # 文档导入、提炼与复用指南
 
-> 状态：Accepted V1 operating procedure
+> 状态：V1 static procedure plus V2 Agent-driven validation
 >
 > 更新日期：2026-08-21
 >
 > 本指南说明如何把 GitHub 链接或 Markdown 指南导入 `agent-kits`，再提炼为
 > 可审核、可复用、可安装的 kit。导入文档永远不会直接执行其中的命令。
+
+V2 动态验证需要本机 Codex CLI 或 Claude Code，以及运行中的 Docker daemon。本机
+Agent 只负责语义分类和客户端验收；Docker 才负责受限执行。没有可用 sandbox 时，
+动态 intake 必须失败，不得降级为“已经验证”。具体边界见
+[`AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md`](../architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)。
 
 ## 1. 先区分四种东西
 
@@ -45,6 +50,42 @@ Claude 配置，也不会执行 Markdown 代码块。
 
 如果原始材料只存在于本地，并且需要 Agent 复盘，可以额外复制到
 `llm-repo/raw/incoming/<date>/`。`llm-repo/` 永远不进入 GitHub Release。
+
+### 2.1.1 使用本机 Agent 的动态 intake
+
+当用户希望验证“这个来源是否可以安装并正常工作”时，使用简写 intake 命令：
+
+```bash
+kitcli agents list
+kitcli agents check --agent codex
+kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user
+kitcli source -url https://example.org/component.md --agent auto --scope user
+```
+
+`agents list` 仅发现可执行文件，绝不调用模型。`agents check` 使用固定的、非安装测试
+材料确认一次真实的结构化模型调用，因此可能消耗本机 Agent 的额度；它不下载来源、不会
+进入 Docker，也不会写入客户端配置。完整 intake 仍会在 Docker 前置检查成功后才把真实
+来源交给本机 Agent。
+
+该命令顺序固定为：静态 gate -> Docker sandbox 前置检查 -> 本机 Agent 受限 JSON
+分析 -> 已审核组件的无网络 sandbox 验证 -> 本地 receipt -> `y/N` 安装确认。
+`--non-interactive` 时，只有显式 `--yes` 才会安装。Agent 输出、Markdown 内容和
+沙箱成功退出都不能单独授权全局写入。未确认时 receipt 会保留，命令返回
+`not_installed`，不会把正常拒绝视为安装失败。
+
+当前已实现的动态组件是 `luna-worker`，其来源必须精确匹配
+`docs/CODEX_LUNA_WORKER_SETUP.md` 的 SHA-256。MCP、Skill 和未知链接可以做静态
+记录，但在拥有受审 manifest、有限验证配方和 Docker receipt 前不能安装。
+
+需要把来源整理为项目内候选而不安装时，使用：
+
+```bash
+kitcli component create -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --id luna-worker
+```
+
+候选写入 `.agent-kits/candidates/`，不会修改 Codex 或 Claude 配置。它是
+`kitcli apply <任意文档>` 的安全替代：现有 `apply` 只接受不可变 plan ID，不能也不应
+执行文档中的命令。
 
 ### 2.2 人工提炼事实
 
@@ -100,26 +141,29 @@ kitcli apply --plan <plan-id> --scope project --yes
 kitcli verify --receipt <receipt-id> --scope project
 ```
 
-上面的 `luna-worker` 命令只有在完成人工提炼并添加对应 manifest 后才可执行。当前
-仓库已登记并可测试的是 `base` kit。需要用户作用域时，把 `--scope project` 改为 `--scope user`。V1 的 `user` 是当前
-用户配置目录，不是系统管理员安装。高风险 Hook、MCP、外部命令和真实全局文件应
-先在隔离目录验证，再由用户明确批准。
+当前 `luna-worker` 已登记为 macOS/Codex 用户组件。先对与当前指南摘要匹配的来源完成
+动态 intake，再执行：
+
+```bash
+kitcli install luna-worker --scope user
+```
+
+V1 的 `user` 是当前用户配置目录，不是系统管理员安装。高风险 Hook、MCP、外部命令和
+真实全局文件应先在隔离目录验证，再由用户明确批准。
 
 ## 3. Luna 文档如何提炼
 
-对 `docs/CODEX_LUNA_WORKER_SETUP.md`，不要把整篇文档变成一个大 payload。建议拆成：
+对 `docs/CODEX_LUNA_WORKER_SETUP.md`，不要把整篇文档变成一个大 payload。当前拆成：
 
 ```text
-catalog/agents/codex/luna-worker/          # luna_worker Agent 声明
-catalog/hooks/codex/enforce-luna-worker/   # PreToolUse 校验规则
-kits/luna-worker/                          # Agent + Hook 的组合
-docs/guides/codex/luna-worker.md            # 人类安装与故障排查指南
-docs/sources/openai-codex-luna.toml         # 官方来源、版本和摘要
+catalog/kits/luna-worker/payloads/          # Agent、Hook、Hook JSON、features 和指令
+catalog/kits/luna-worker/manifest.toml      # 五个目标路径、摘要和合并策略
 ```
 
 提炼后的 kit 需要分别声明：Codex 最低版本、`luna_worker` 参数约束、Hook matcher
-和输入输出、信任步骤、备份/合并规则、失败时的 deny 或 rollback 行为。完成真实
-Codex 加载和 Hook 验收前，只能标为 `review_required`，不能标为 `verified`。
+和输入输出、信任步骤、备份/合并规则、失败时的 deny 或 rollback 行为。Docker receipt
+证明渲染后的配置与 Hook 输入输出；真实 Codex `/hooks` 信任和子代理加载验收仍必须由
+用户在安装后完成。
 
 ## 4. 给其他人复用
 
@@ -131,8 +175,9 @@ Codex 加载和 Hook 验收前，只能标为 `review_required`，不能标为 `
 4. 安装、验证、回滚和兼容矩阵文档。
 5. `agent-kits` 正式 Release 中的版本和摘要。
 
-使用者先获取已审查的仓库 Release，再执行 `doctor`、`catalog list` 和 `plan`。只有
-计划内容、来源摘要、目标作用域和风险都确认后，才执行 `apply`。不同平台只使用
+使用者先获取已审查的仓库 Release，再执行 `agents list`、`doctor`、`catalog list` 和
+动态 source intake。只有当前来源与组件摘要、sandbox receipt、目标作用域和风险都确认后，
+才执行 `kitcli install <component>` 或通过 source intake 回答 `y`。不同平台只使用
 兼容的 target；不兼容项必须在 plan 中明确显示，不能静默跳过。
 
 ## 5. 文档更新与自更新

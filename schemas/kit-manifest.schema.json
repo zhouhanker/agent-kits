@@ -29,7 +29,7 @@
           "path": {"type": "string", "minLength": 1},
           "payload": {"type": "string", "pattern": "^[^/].*"},
           "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-          "strategy": {"const": "managed_markdown_block"},
+          "strategy": {"enum": ["managed_markdown_block", "replace_file", "managed_json_hook", "managed_toml_bool"]},
           "block_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$"},
           "scopes": {"type": "array", "minItems": 1, "items": {"enum": ["project", "user"]}}
         },

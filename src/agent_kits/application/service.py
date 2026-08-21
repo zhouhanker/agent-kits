@@ -7,9 +7,11 @@ import hashlib
 import os
 import platform
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
+import tomllib
 import uuid
 import urllib.error
 from urllib.parse import urlparse
@@ -21,6 +23,8 @@ from typing import Any
 from agent_kits import __version__
 from agent_kits.domain.errors import ConflictError, NotFoundError, PolicyError, ValidationError
 from agent_kits.domain.manifest import load_kit_manifest
+from agent_kits.infrastructure.agents import agent_report, analyze_source, check_agent_capability, select_agent
+from agent_kits.infrastructure.components import luna_candidate_sha256, luna_source_sha256, source_component, validate_luna_worker
 from agent_kits.infrastructure.paths import (
     doctor_report,
     ensure_contained,
@@ -35,7 +39,8 @@ from agent_kits.infrastructure.repository import (
     load_kit,
     load_repository_profile,
 )
-from agent_kits.infrastructure.sources import inspect_source, quarantine_source
+from agent_kits.infrastructure.sandbox import sandbox_report, select_sandbox
+from agent_kits.infrastructure.sources import inspect_source, quarantine_source, read_inspected_source
 from agent_kits.infrastructure.state import (
     canonical_json,
     read_json,
@@ -63,6 +68,101 @@ def _render_managed_block(existing: str, block_id: str, payload: str) -> str:
     if existing.strip():
         return existing.rstrip("\n") + "\n\n" + block + "\n"
     return block + "\n"
+
+
+def _render_managed_json_hook(existing: str, block_id: str, payload: str) -> str:
+    """Merge one identifiable Hook group without changing other Hook groups."""
+
+    try:
+        document = json.loads(existing) if existing.strip() else {}
+        group = json.loads(payload)
+    except json.JSONDecodeError as error:
+        raise ValidationError(f"Invalid managed Hook JSON: {error}") from error
+    if not isinstance(document, dict) or not isinstance(group, dict):
+        raise ValidationError("Managed Hook JSON must contain objects")
+    hooks = document.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise ValidationError("hooks.json hooks value must be an object")
+    event = group.get("event")
+    entries = group.get("entries")
+    if event != "PreToolUse" or not isinstance(entries, list) or len(entries) != 1:
+        raise ValidationError("Managed Hook payload must declare one PreToolUse group")
+    entry = entries[0]
+    if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+        raise ValidationError("Managed Hook payload has an invalid group")
+    marker = f"agent-kits:{block_id}"
+    existing_entries = hooks.get(event, [])
+    if not isinstance(existing_entries, list):
+        raise ValidationError(f"hooks.json {event} value must be an array")
+
+    def owned(item: object) -> bool:
+        return isinstance(item, dict) and any(
+            isinstance(hook, dict) and hook.get("statusMessage") == marker
+            for hook in item.get("hooks", [])
+        )
+
+    hooks[event] = [item for item in existing_entries if not owned(item)] + [entry]
+    return json.dumps(document, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+
+
+def _render_payload(payload: str, client_root: Path) -> str:
+    """Expand the two path values permitted in source-controlled payloads."""
+
+    values = {
+        "{{python}}": shlex.quote(sys.executable),
+        "{{client_root}}": shlex.quote(str(client_root)),
+    }
+    rendered = payload
+    for placeholder, value in values.items():
+        rendered = rendered.replace(placeholder, value)
+    if re.search(r"\{\{[a-z_]+\}\}", rendered):
+        raise ValidationError("Payload contains an unsupported template placeholder")
+    return rendered
+
+
+def _render_managed_toml_bool(existing: str, payload: str) -> str:
+    """Set one declared top-level TOML boolean while retaining other tables."""
+
+    try:
+        declaration = json.loads(payload)
+    except json.JSONDecodeError as error:
+        raise ValidationError(f"Invalid managed TOML declaration: {error}") from error
+    if declaration != {"table": "features", "key": "hooks", "value": True}:
+        raise ValidationError("Unsupported managed TOML declaration")
+    if not existing.strip():
+        return "[features]\nhooks = true\n"
+    try:
+        parsed = tomllib.loads(existing)
+    except tomllib.TOMLDecodeError as error:
+        raise ValidationError(f"Invalid existing TOML configuration: {error}") from error
+    current = parsed.get("features")
+    if current is not None and (not isinstance(current, dict) or "hooks" in current and not isinstance(current["hooks"], bool)):
+        raise ValidationError("config.toml features.hooks must be a boolean")
+    table_match = re.search(r"(?m)^\[features\]\s*$", existing)
+    if table_match is None:
+        return existing.rstrip("\n") + "\n\n[features]\nhooks = true\n"
+    next_table = re.search(r"(?m)^\[[^\]]+\]\s*$", existing[table_match.end():])
+    end = table_match.end() + next_table.start() if next_table else len(existing)
+    section = existing[table_match.end():end]
+    hook_line = re.search(r"(?m)^\s*hooks\s*=\s*(?:true|false)\s*(?:#.*)?$", section)
+    if hook_line is None:
+        section = "\nhooks = true" + section
+    else:
+        section = section[:hook_line.start()] + "hooks = true" + section[hook_line.end():]
+    return existing[:table_match.end()] + section + existing[end:]
+
+
+def _render_target(existing: str, strategy: str, block_id: str, payload: str, client_root: Path) -> str:
+    rendered_payload = _render_payload(payload, client_root)
+    if strategy == "managed_markdown_block":
+        return _render_managed_block(existing, block_id, rendered_payload)
+    if strategy == "replace_file":
+        return rendered_payload.rstrip("\n") + "\n"
+    if strategy == "managed_json_hook":
+        return _render_managed_json_hook(existing, block_id, rendered_payload)
+    if strategy == "managed_toml_bool":
+        return _render_managed_toml_bool(existing, rendered_payload)
+    raise ValidationError(f"Unsupported target strategy: {strategy}")
 
 
 def _state_root(scope: str, project_root: Path) -> Path:
@@ -98,7 +198,21 @@ def run_doctor(repository: Path, project_root: Path) -> dict[str, Any]:
         "python_version": report.python_version,
         "state_root": report.state_root,
         "clients": report.clients,
+        "agents": agent_report(),
+        "sandboxes": sandbox_report(),
     }
+
+
+def run_agents_list() -> dict[str, Any]:
+    """List local Agent and sandbox prerequisites without model invocation."""
+
+    return {"agents": agent_report(), "sandboxes": sandbox_report()}
+
+
+def run_agents_check(agent_identifier: str) -> dict[str, Any]:
+    """Run an explicit, metered local-Agent capability probe."""
+
+    return check_agent_capability(agent_identifier)
 
 
 def run_catalog_list(repository: Path) -> dict[str, Any]:
@@ -113,6 +227,107 @@ def run_source_inspect(source: str, max_bytes: int | None = None) -> dict[str, A
 
 def run_source_import(source: str, source_kind: str, state_root: Path | None = None) -> dict[str, Any]:
     return quarantine_source(source, source_kind, state_root)
+
+
+def run_source_intake(
+    repository: Path,
+    source: str,
+    agent_identifier: str,
+    scope: str,
+    project_root: Path,
+) -> dict[str, Any]:
+    """Classify and dynamically validate a source without globally installing it."""
+
+    if scope not in {"project", "user"}:
+        raise ValidationError("source intake scope must be project or user")
+    content, inspection = read_inspected_source(source)
+    # Dynamic validation is mandatory for Agent-driven intake. Check before
+    # invoking a metered local Agent so unavailable isolation has no model cost.
+    select_sandbox()
+    agent = select_agent(agent_identifier)
+    analysis = analyze_source(agent, source, content)
+    component_id = source_component(repository, source, inspection.sha256, analysis.kind)
+    result: dict[str, Any] = {
+        "inspection": _json_target(inspection.__dict__),
+        "analysis": _json_target(analysis.__dict__),
+        "component_id": component_id,
+        "installable": False,
+    }
+    if component_id == "luna-worker":
+        if scope != "user":
+            raise PolicyError("The Luna worker component supports user scope only")
+        receipt = validate_luna_worker(repository, inspection.sha256, agent.identifier, _state_root(scope, project_root))
+        result["validation"] = receipt
+        result["installable"] = True
+    return result
+
+
+def run_component_create(
+    repository: Path,
+    project_root: Path,
+    source: str,
+    agent_identifier: str,
+    identifier: str | None,
+) -> dict[str, Any]:
+    """Create a local review candidate without changing a client configuration."""
+
+    # Luna is a user-scope component. This validates and records evidence only;
+    # it does not call apply or alter the client configuration.
+    intake = run_source_intake(repository, source, agent_identifier, "user", project_root)
+    requested_id = identifier or intake.get("component_id")
+    if requested_id is not None and (not isinstance(requested_id, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", requested_id)):
+        raise ValidationError("Component ID must use lowercase letters, digits, and hyphens")
+    status = "verified_candidate" if intake.get("installable") else "review_required"
+    candidate_id = requested_id or f"source-{intake['inspection']['sha256'][:12]}"
+    candidate = {
+        "schema_version": 1,
+        "candidate_id": candidate_id,
+        "status": status,
+        "source": intake["inspection"],
+        "analysis": intake["analysis"],
+        "component_id": intake.get("component_id"),
+        "validation": intake.get("validation"),
+    }
+    candidate_path = project_state_root(project_root) / "candidates" / f"{candidate_id}.json"
+    write_json_atomic(candidate_path, candidate)
+    return {"candidate": candidate, "path": str(candidate_path), "installable": bool(intake.get("installable"))}
+
+
+def _validated_component(repository: Path, component_id: str, state_root: Path) -> bool:
+    if component_id != "luna-worker":
+        return True
+    candidate_sha256 = luna_candidate_sha256(repository)
+    source_sha256 = luna_source_sha256(repository)
+    validation_root = state_root / "validations"
+    for path in validation_root.glob("*.json") if validation_root.is_dir() else []:
+        try:
+            receipt = read_json(path)
+        except ValidationError:
+            continue
+        if receipt.get("status") == "validated" and receipt.get("component_id") == component_id and receipt.get("candidate_sha256") == candidate_sha256 and receipt.get("source_sha256") == source_sha256:
+            return True
+    return False
+
+
+def run_install(
+    repository: Path,
+    project_root: Path,
+    component_id: str,
+    scope: str,
+    confirm: bool,
+) -> dict[str, Any]:
+    """Install a reviewed component through the existing plan/apply transaction."""
+
+    aliases = {"CODEX_LUNA_WORKER_SETUP": "luna-worker", "CODEX_LUNA_WORKER_SETUP.md": "luna-worker"}
+    normalized_id = aliases.get(component_id, component_id)
+    state_root = _state_root(scope, project_root)
+    if not _validated_component(repository, normalized_id, state_root):
+        raise PolicyError(f"Component {normalized_id} needs a current sandbox validation receipt before installation")
+    plan = run_plan(repository, project_root, normalized_id, scope, None, None)
+    if not confirm:
+        return {"component_id": normalized_id, "plan": plan, "installed": False}
+    receipt = run_apply(plan["plan_id"], scope, project_root, True)
+    return {"component_id": normalized_id, "plan": plan, "receipt": receipt, "installed": True}
 
 
 def run_update_check(repository: Path, project_root: Path, target: str) -> dict[str, Any]:
@@ -288,7 +503,7 @@ def run_plan(repository: Path, project_root: Path, kit_id: str, scope: str, clie
             root = _target_root(scope, project_root, target.client)
             target_path = ensure_contained(root / target.path, root)
             before_content = target_path.read_text(encoding="utf-8") if target_path.exists() else ""
-            after_content = _render_managed_block(before_content, target.block_id, payload)
+            after_content = _render_target(before_content, target.strategy, target.block_id, payload, root)
             targets.append({
                 "client": target.client,
                 "scope": scope,

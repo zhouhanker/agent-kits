@@ -56,6 +56,75 @@ kitcli doctor
 kitcli catalog list
 ```
 
+## Validate Sources With A Local Agent
+
+Dynamic installation validation requires a locally installed and authenticated
+Codex CLI or Claude Code, plus a running Docker daemon. The local Agent selects
+and bills its own model; `kitcli` does not provide a model, store tokens, or run
+commands embedded in source Markdown.
+
+It also requires a reviewed, SHA-256 digest-pinned validation image that provides
+`/usr/local/bin/python`, for example a team-published Python 3.11 image:
+
+```bash
+export AGENT_KITS_SANDBOX_IMAGE='registry.example/kitcli-python@sha256:<64-hex-digest>'
+```
+
+Check prerequisites:
+
+```bash
+kitcli agents list
+```
+
+`agents list` only finds executables on `PATH`; it does not test login or model
+access. To explicitly prove account, model, and structured-output access before
+intake, run one of the following commands. It consumes one constrained model
+call from that local Agent, but accepts no external source, uses no Docker, and
+does not install or modify client configuration:
+
+```bash
+kitcli agents check --agent codex
+kitcli agents check --agent claude-code
+```
+
+Run full intake for a local document or HTTPS URL. It performs static checks,
+asks the local Agent for constrained JSON classification, and validates a
+reviewed component in a no-network Docker container without mounting the user
+home. Only after validation will it ask to install into the selected scope:
+
+```bash
+kitcli source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user
+kitcli source -url https://example.com/component.md --agent auto --scope user
+```
+
+Non-interactive automation must explicitly approve installation:
+
+```bash
+kitcli --non-interactive source -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --scope user --yes
+```
+
+Without `--yes`, automation retains the validation receipt and returns
+`not_installed`. Answering `n` at an interactive prompt has the same behavior:
+it is not an installation error and does not modify global client configuration.
+
+If Docker is stopped, the image is not digest-pinned, no local Agent is available,
+no reviewed component matches the source, or dynamic validation fails, the command
+stops without executing source commands or installing anything. The Docker gate
+runs before model invocation during intake. Use `kitcli source inspect` and
+`kitcli source import` when you only need source evidence without a model.
+
+To create a review candidate in the project without installing it to a local
+client, use:
+
+```bash
+kitcli component create -file ./docs/CODEX_LUNA_WORKER_SETUP.md --agent codex --id luna-worker
+```
+
+It writes source facts, Agent classification, and a sandbox receipt to
+`.agent-kits/candidates/`. An unknown MCP or skill becomes a `review_required`
+candidate until it has a reviewed manifest and bounded validation recipe. This
+is the safe replacement for `kitcli apply <arbitrary-document>`.
+
 External documents are inspected or quarantined without executing their Markdown
 code blocks, shell commands, Python, hooks, or installers:
 
@@ -72,6 +141,18 @@ kitcli apply --plan <plan-id> --scope project --yes
 kitcli verify --receipt <receipt-id> --scope project
 kitcli rollback --receipt <receipt-id> --scope project --yes
 ```
+
+Reusable components with a current sandbox receipt can be installed on another
+device. The first component is `luna-worker`:
+
+```bash
+kitcli install luna-worker --scope user
+```
+
+`CODEX_LUNA_WORKER_SETUP` remains a compatibility alias. Luna supports only the
+macOS Codex user scope and installs an agent TOML, fail-closed Hook, Hook
+registration, feature flag, and managed instructions without replacing other
+Hooks or instructions.
 
 For stable Agent output:
 
@@ -131,6 +212,7 @@ URL/file -> source inspect -> source import/quarantine
 - [Document import and promotion guide](docs/guides/DOCUMENT_IMPORT_AND_PROMOTION.md)
 - [CLI V1 implementation plan](docs/implementation/CLI_V1_IMPLEMENTATION_PLAN.md)
 - [Architecture review](docs/architecture/ARCHITECTURE_REVIEW.md)
+- [Agent validation and component lifecycle](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
 The official `v0.1.4` installer and self-update flow are verified on macOS.
 The Windows installer has CI coverage but has not yet been verified on a real

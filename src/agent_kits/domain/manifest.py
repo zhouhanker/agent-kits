@@ -123,7 +123,7 @@ def load_kit_manifest(path: Path) -> KitManifest:
         if _sha256(resolved_payload) != payload_sha256:
             raise ValidationError(f"{path}: payload SHA-256 does not match: {payload_path}")
         strategy = _required_string(raw_target, "strategy", path)
-        if strategy != "managed_markdown_block":
+        if strategy not in {"managed_markdown_block", "replace_file", "managed_json_hook", "managed_toml_bool"}:
             raise ValidationError(f"{path}: targets[{index}].strategy is unsupported")
         block_id = _validate_identifier(
             _required_string(raw_target, "block_id", path), "targets.block_id", path

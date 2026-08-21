@@ -62,6 +62,7 @@ def state_paths(state_root: Path) -> dict[str, Path]:
     return {
         "plans": state_root / "plans",
         "receipts": state_root / "receipts",
+        "validations": state_root / "validations",
         "backups": state_root / "backups",
     }
 

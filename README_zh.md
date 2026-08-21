@@ -13,3 +13,6 @@ curl -fsSL https://github.com/zhouhanker/agent-kits/releases/latest/download/ins
 
 安装完成后运行 `kitcli doctor`。Windows PowerShell 安装方式和完整安全边界请见
 [README.md](README.md)。
+
+本机 Codex/Claude Code、Docker sandbox 验证和可复用组件安装说明也在
+[README.md](README.md)。

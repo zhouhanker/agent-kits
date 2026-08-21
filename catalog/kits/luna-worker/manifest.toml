@@ -1,0 +1,52 @@
+[kit]
+schema_version = 1
+id = "luna-worker"
+version = "1.0.0"
+description = "Codex Luna subagent and fail-closed PreToolUse enforcement hook."
+risk = "high"
+platforms = ["macos"]
+
+[[targets]]
+client = "codex"
+path = "agents/luna-worker.toml"
+payload = "payloads/luna-worker.toml"
+payload_sha256 = "a9bbb22ba6d25c08064e2ae44d4646277cf62cb214e0808c7bf439d6f02c1526"
+strategy = "replace_file"
+block_id = "luna-worker-agent"
+scopes = ["user"]
+
+[[targets]]
+client = "codex"
+path = "hooks/enforce-luna-worker.py"
+payload = "payloads/enforce-luna-worker.py"
+payload_sha256 = "b77a579b8a565731a3b2c138d0f239988017f9f176dbd4f609bd3dfbb11d70b8"
+strategy = "replace_file"
+block_id = "luna-worker-hook-script"
+scopes = ["user"]
+
+[[targets]]
+client = "codex"
+path = "hooks.json"
+payload = "payloads/hooks.json"
+payload_sha256 = "f40678f7168caba679aa7024ec3d82ac6cb3f4ece88df96dbab1b76f761e743e"
+strategy = "managed_json_hook"
+block_id = "luna-worker-hook"
+scopes = ["user"]
+
+[[targets]]
+client = "codex"
+path = "config.toml"
+payload = "payloads/features.json"
+payload_sha256 = "174ac61f13a8f8ad9ad7b650fbc6490b3158c65fd7a59bd29e1fd9b271c6f7e5"
+strategy = "managed_toml_bool"
+block_id = "luna-worker-feature"
+scopes = ["user"]
+
+[[targets]]
+client = "codex"
+path = "AGENTS.md"
+payload = "payloads/agents.md"
+payload_sha256 = "c25f783f089f465ab4e92873da2fc1aef797a511e76cdc0d76430ef3a30cb69e"
+strategy = "managed_markdown_block"
+block_id = "luna-worker-instructions"
+scopes = ["user"]

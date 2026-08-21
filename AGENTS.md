@@ -100,3 +100,27 @@
 - Unresolved: real Windows installation, non-macOS device validation, macOS
   client loading evidence, external gateway Release contract, and branch
   protection. Do not report these as complete.
+
+## Agent Validation V2 Checkpoint
+
+- Current V2 CLI: `agents list`, concise `source -file/-url` intake,
+  `component create`, and receipt-gated `install` are implemented. `agents
+  check --agent <id>` is an explicit, metered capability probe; `agents list`
+  discovers executables only and must not be treated as login/model evidence.
+- Dynamic intake requires a detected local Codex CLI or Claude Code, a running
+  Docker daemon, and `AGENT_KITS_SANDBOX_IMAGE` set to a digest-pinned Python
+  validation image. Do not call a model or execute source instructions when a
+  prerequisite is absent.
+- `luna-worker` is the first reusable component. Its current source digest,
+  component payload digest, Agent identity, and Docker receipt must all match
+  before user-scope installation. The existing `plan/apply/verify/rollback`
+  transaction remains the only writer.
+- Current host evidence: Codex and Claude Code are detected; Docker daemon is
+  running and a local `python@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4`
+  image is available for an explicit `AGENT_KITS_SANDBOX_IMAGE` setting. Real
+  Agent analysis has not produced a retained validation receipt in this
+  automation session, so dynamic Luna validation and global installation remain
+  unverified. Do not report them as complete.
+- Unknown MCP/Skill sources may become local `review_required` candidates only;
+  they are not installable until a reviewed manifest and bounded validation
+  recipe exist.
