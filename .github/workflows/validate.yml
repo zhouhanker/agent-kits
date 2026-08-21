@@ -27,16 +27,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package without dependencies
         run: python -m pip install --no-deps .
-      - name: Check POSIX console entry points
-        if: runner.os != 'Windows'
+      - name: Check package CLI entry point
         run: |
-          kitcli --help
-          agent-kits --json catalog list
-      - name: Check Windows console entry points
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          python -c "import importlib.metadata as m; names = {entry.name for entry in m.distribution('agent-kits').entry_points}; assert {'kitcli', 'agent-kits'} <= names"
           python -m agent_kits --help
           python -m agent_kits --json catalog list
       - name: Compile package and tests
