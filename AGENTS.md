@@ -126,6 +126,9 @@
   request but its configured provider rejects structured JSON requests. Neither
   is presently an eligible dynamic-intake Agent; repair the external Agent
   authentication/provider state before retrying.
+- Claude subscription-compatible adapter behavior and redacted structured-error
+  diagnostics were pushed to `origin/main` as `0952a05` on 2026-08-21. This
+  does not resolve the external Agent authentication/provider blockers.
 - V2 source-intake implementation was pushed to `origin/main` as commit
   `54592b4` on 2026-08-21 after a staged credential-pattern scan. `llm-repo/`
   was not staged or pushed.
