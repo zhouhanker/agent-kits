@@ -36,9 +36,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $scripts = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
-          & (Join-Path $scripts 'kitcli.exe') --help
-          & (Join-Path $scripts 'agent-kits.exe') --json catalog list
+          python -c "import importlib.metadata as m; names = {entry.name for entry in m.distribution('agent-kits').entry_points}; assert {'kitcli', 'agent-kits'} <= names"
+          python -m agent_kits --help
+          python -m agent_kits --json catalog list
       - name: Compile package and tests
         run: python -m compileall -q src tests
       - name: Run isolated tests
