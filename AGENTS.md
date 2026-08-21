@@ -70,18 +70,33 @@
   signature, or branch protection.
 - Detailed implementation plan:
   `docs/implementation/CLI_V1_IMPLEMENTATION_PLAN.md`.
-- Next node: run or review CI on the supported OS/Python matrix, then evaluate
-  real non-macOS devices, real macOS client loading, and upstream Release
-  readiness. Repository/source `update check` is read-only; the official
-  isolated installer supports explicit `kitcli update --check` / `kitcli
-  update --yes` for the CLI only. No device configuration is changed by that
-  operation.
+- Next node: evaluate real non-macOS devices, real macOS client loading,
+  upstream gateway Release readiness, and branch protection. The supported
+  OS/Python CI matrix and official `v0.1.4` installer E2E are complete.
+  Repository/source `update check` is read-only; the official isolated
+  installer supports explicit `kitcli update --check` / `kitcli update --yes`
+  for the CLI only. No device configuration is changed by that operation.
 - Current command naming: use `kitcli` in user-facing commands and documentation;
   keep `agent-kits` as the compatibility console alias and package/environment
-  identifier. `README.md` and `README_zh.md` are the bilingual entry points.
+  identifier. `README.md` is the Chinese default entry point; `README_en.md`
+  is the English entry point, while `README_zh.md` remains a Chinese
+  compatibility link.
 - Global distribution: the official installer scripts are under `scripts/` and
-  the tagged Release workflow is `.github/workflows/release.yml`. Do not claim
-  their public download URL is live until the first GitHub Release exists.
+  the tagged Release workflow is `.github/workflows/release.yml`. Release
+  `v0.1.4` is the current verified installer reference. Windows remains CI-only
+  until a real Windows host is tested.
 - Blocking conditions: work-device policy and upstream gateway Release remain
   external gates, but do not block the local V1 CLI foundation.
 - Known risks: see `llm-repo/warn.md`.
+
+## Continuation Checkpoint 2026-08-21
+
+- Current node: the local user installation has been replaced by the official
+  checksum-verified `v0.1.4` Release installer.
+- Verified entry points: `~/.local/bin/kitcli` and the `agent-kits`
+  compatibility alias; metadata is in `~/.local/share/kitcli/install.json`.
+- Verified operations: catalog JSON, doctor, `update --check`, `update --yes`,
+  14 unittest cases, `compileall`, and `pip check`.
+- Unresolved: real Windows installation, non-macOS device validation, macOS
+  client loading evidence, external gateway Release contract, and branch
+  protection. Do not report these as complete.

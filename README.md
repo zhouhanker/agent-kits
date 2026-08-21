@@ -1,119 +1,132 @@
 # agent-kits
 
-- [English README](README.md)
-- [中文 README](README_zh.md)
+- [中文 README](README.md)
+- [English README](README_en.md)
 
-`agent-kits` is a versioned, auditable configuration and distribution repository
-for Agent development environments. Its intended scope
-includes Codex, Claude Code, future Agent clients, subagents, hooks, MCP
-servers, skills, reusable instructions, platform-specific integrations, and
-device profiles.
+`agent-kits` 是一个可版本化、可审计的 Agent 开发环境配置与分发仓库。用户命令是
+`kitcli`；`agent-kits` 保留为兼容命令、发行包名、Python import 名称和 Conda 环境名。
 
-The repository contains the V1 standard-library CLI, validated manifests,
-profiles, source quarantine, isolated plan/apply/verify/rollback transactions,
-and architecture documentation. Real user-global installation, GitHub Actions,
-and external gateway installation remain gated by the implementation plan.
+## 安装 kitcli
 
-## Architecture Review
+`kitcli` 默认安装 GitHub 上最新的正式 Release。安装器要求 Python 3.11+，下载 wheel
+后会校验 Release 中的 `SHA256SUMS`，并安装到独立的用户目录，不会修改系统 Python。
 
-Review these documents before implementation:
+### macOS / Linux
 
-- [Architecture review and recommended defaults](docs/architecture/ARCHITECTURE_REVIEW.md)
-- [Project structure proposal](docs/architecture/PROJECT_STRUCTURE_PROPOSAL.md)
-- [CLI, source admission, and update architecture](docs/architecture/CLI_AND_UPDATE_ARCHITECTURE.md)
-- [multiple-devices-ai-gateway integration proposal](docs/architecture/MULTIPLE_DEVICES_AI_GATEWAY_INTEGRATION.md)
-- [Upstream documentation and update strategy](docs/maintenance/UPSTREAM_DOCUMENTATION_UPDATE_STRATEGY.md)
-- [Existing Codex Luna worker setup guide](docs/CODEX_LUNA_WORKER_SETUP.md)
-- [Document import and promotion guide](docs/guides/DOCUMENT_IMPORT_AND_PROMOTION.md)
+```bash
+curl -fsSL https://github.com/zhouhanker/agent-kits/releases/latest/download/install.sh | sh
+```
 
-The architecture baseline is approved for phased implementation. Progress and
-acceptance gates are tracked in
-[the CLI V1 implementation plan](docs/implementation/CLI_V1_IMPLEMENTATION_PLAN.md).
+安装完成后执行：
 
-Planned upstream repository: <https://github.com/zhouhanker/agent-kits.git>.
-No Git remote or repository state was changed during the documentation phase.
+```bash
+kitcli doctor
+```
 
-## Environment
+安装器会把入口放在 `~/.local/bin/kitcli`。若当前 shell 找不到命令，请将
+`~/.local/bin` 加入 `PATH` 后重新打开终端。
 
-Create or update the Conda environment from the repository root:
+### Windows PowerShell
+
+在 PowerShell 中执行：
+
+```powershell
+irm https://github.com/zhouhanker/agent-kits/releases/latest/download/install.ps1 | iex
+```
+
+安装器会将 `kitcli` 放到 `%LOCALAPPDATA%\Programs\kitcli` 并加入用户 `PATH`。
+请重新打开 PowerShell，再执行：
+
+```powershell
+kitcli doctor
+```
+
+一键命令适用于信任本项目正式 Release 的场景。需要先审查安装脚本时，下载 Release
+中的 `install.sh` 或 `install.ps1`，审查后再执行；不要将外部 Markdown 中的命令直接
+作为安装内容执行。
+
+## 快速开始
+
+```bash
+kitcli doctor
+kitcli catalog list
+```
+
+检查或隔离外部文档时，`kitcli` 只做静态检查和 quarantine 导入，不执行 Markdown
+代码块、Shell、Python、Hook 或安装命令：
+
+```bash
+kitcli source inspect --file ./docs/CODEX_LUNA_WORKER_SETUP.md
+kitcli source import --file ./docs/CODEX_LUNA_WORKER_SETUP.md --as document
+```
+
+经过人工审查和提炼后，使用已登记的 kit 生成计划；写入操作必须显式确认：
+
+```bash
+kitcli plan --kit base --scope project --client codex
+kitcli apply --plan <plan-id> --scope project --yes
+kitcli verify --receipt <receipt-id> --scope project
+kitcli rollback --receipt <receipt-id> --scope project --yes
+```
+
+Agent 自动化可使用稳定 JSON 输出：
+
+```bash
+kitcli --json --non-interactive catalog list
+```
+
+## 更新 kitcli
+
+先检查最新 Release，不写入本地环境：
+
+```bash
+kitcli update --check
+```
+
+确认后更新通过官方安装器创建的隔离环境：
+
+```bash
+kitcli update --yes
+```
+
+通过 Conda、pipx 或 uv 安装的版本仍由对应包管理器更新。CLI、仓库内容、外部来源锁和
+设备配置使用独立的检查与变更事务，不会合并成一次无人审查的写入操作。
+
+## 开发环境
+
+项目开发使用 Conda 环境 `agent-kits`：
 
 ```bash
 conda env create -f environment_cross_platform.yml
-# For an existing environment:
-conda env update -n agent-kits -f environment_cross_platform.yml
 conda activate agent-kits
-```
-
-Install the local package without downloading build dependencies:
-
-```bash
 python -m pip install --no-build-isolation --no-deps -e .
+kitcli doctor
 ```
 
-The editable install creates `kitcli` inside the active Conda environment. From
-the repository directory, either activate that environment first or call the
-environment explicitly:
+未激活 Conda 时可以使用：
 
 ```bash
-conda activate agent-kits
-kitcli doctor
-# without activation:
 conda run -n agent-kits kitcli doctor
 ```
 
-For a user-global command on macOS or Linux, install the checksum-verified
-wheel into an isolated user directory. The installer uses Python 3.11+ and
-does not modify the system Python:
+## 架构与安全边界
 
-```bash
-curl -fsSL https://github.com/zhouhanker/agent-kits/releases/latest/download/install.sh -o /tmp/kitcli-install.sh
-less /tmp/kitcli-install.sh
-sh /tmp/kitcli-install.sh
-```
-
-The installer puts `kitcli` in `~/.local/bin` and tells you if that directory
-needs to be added to `PATH`. Windows users should download and inspect
-`install.ps1`, then run it from PowerShell; it installs under
-`%LOCALAPPDATA%\\Programs\\kitcli` and adds that directory to the user PATH.
-The GitHub Release must contain a versioned wheel and `SHA256SUMS`; the
-installer fails closed when either is missing.
-
-## CLI
-
-Use `kitcli doctor` and `kitcli catalog list` for read-only discovery. The
-installed `agent-kits` command remains available as a compatibility alias.
-Inspect or quarantine a GitHub/Markdown source with `kitcli source inspect` or
-`kitcli source import`; imported Markdown is never executed. Generate a reviewed
-plan with `kitcli plan --kit base --scope project --client codex`, then explicitly
-apply it with `kitcli apply --plan <plan-id> --scope project --yes`. Verify and
-roll back using the resulting receipt. User scope is available through
-`--scope user` and is tested with isolated client roots; no real global
-configuration is modified by the test suite.
-
-## CLI updates
-
-An installation made by the official installer records only its fixed HTTPS
-Release asset and checksum locations. Run `kitcli update --check` to download
-and verify the candidate wheel without writing. Run `kitcli update --yes` to
-replace the isolated CLI through its recorded Python environment. Conda, pipx,
-and uv installations remain owned by those package managers; use their normal
-upgrade command and then run `kitcli update check` for repository/source state.
-Plain `kitcli update` is equivalent to the read-only check.
-
-## Layout
+外部链接或文档不是安装授权。推荐链路如下：
 
 ```text
-src/agent_kits/   Python package
-tests/            Automated tests
-catalog/          Source-controlled kits and external locks
-profiles/         Source-controlled profile selections
-schemas/          Versioned declaration schemas
-docs/             Project documentation
-llm-repo/         Agent-local evidence and work logs (not committed)
+URL/文件 -> source inspect -> source import/quarantine
+        -> 人工提炼与 schema/安全审查
+        -> catalog manifest -> kit/profile
+        -> plan -> 人工确认 -> apply -> verify/rollback
 ```
 
-The V1 standard-library CLI is implemented and tested for source inspection,
-quarantine import, catalog discovery, plan/apply/verify/rollback transactions,
-and read-only update checks. Real global installation, signed standalone
-artifacts, external gateway installation, and non-macOS device verification
-remain gated by the documented release and validation requirements.
+`llm-repo/` 是 Agent 本地证据与工作日志，不应上传。完整架构与操作说明：
+
+- [CLI、来源准入与更新架构](docs/architecture/CLI_AND_UPDATE_ARCHITECTURE.md)
+- [文档导入、提炼与复用指南](docs/guides/DOCUMENT_IMPORT_AND_PROMOTION.md)
+- [CLI V1 实施计划](docs/implementation/CLI_V1_IMPLEMENTATION_PLAN.md)
+- [架构评审](docs/architecture/ARCHITECTURE_REVIEW.md)
+
+当前 `v0.1.4` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
+但尚未在真实 Windows 设备验证；外部 Apple 网关仍需不可变 Release、制品摘要、许可证
+和 CI 证据后才能进入无人值守安装。
