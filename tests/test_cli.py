@@ -180,7 +180,10 @@ class CliTestCase(unittest.TestCase):
     def test_target_symlink_is_rejected_before_plan(self) -> None:
         outside = Path(self.temp_dir.name) / "outside.md"
         outside.write_text("must remain unchanged\n", encoding="utf-8")
-        (self.project / "AGENTS.md").symlink_to(outside)
+        try:
+            (self.project / "AGENTS.md").symlink_to(outside)
+        except OSError as error:
+            self.skipTest(f"symlink creation is unavailable on this runner: {error}")
         code, result, _, _ = self.invoke("plan", "--kit", "base", "--scope", "project", "--client", "codex")
         self.assertEqual(code, 5)
         self.assertEqual(result["error"]["type"], "PolicyError")
