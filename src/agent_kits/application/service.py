@@ -396,6 +396,49 @@ def _download_update_asset(url: str, destination: Path, max_bytes: int) -> None:
         raise ValidationError(f"Unable to download update asset: {error}") from error
 
 
+def _release_api_url(metadata: dict[str, Any], wheel_url: str) -> str:
+    """Resolve the latest-release API endpoint for old and new installer state."""
+
+    configured = metadata.get("release_api_url")
+    if isinstance(configured, str) and configured:
+        candidate = configured
+    else:
+        parsed = urlparse(wheel_url)
+        parts = parsed.path.strip("/").split("/")
+        if parsed.hostname != "github.com" or len(parts) < 5 or parts[2:4] != ["releases", "download"]:
+            raise ValidationError("Installer metadata cannot determine the GitHub repository")
+        candidate = f"https://api.github.com/repos/{parts[0]}/{parts[1]}/releases/latest"
+    parsed = urlparse(candidate)
+    if parsed.scheme != "https" or parsed.hostname != "api.github.com" or parsed.query or parsed.fragment:
+        raise ValidationError("Installer metadata contains an invalid GitHub Release API URL")
+    return candidate
+
+
+def _latest_release_assets(metadata: dict[str, Any], wheel_url: str) -> tuple[str, str]:
+    """Fetch the latest immutable wheel/checksum asset URLs from GitHub."""
+
+    api_url = _release_api_url(metadata, wheel_url)
+    with tempfile.TemporaryDirectory(prefix="kitcli-release-") as temporary:
+        release_path = Path(temporary) / "release.json"
+        _download_update_asset(api_url, release_path, 2 * 1024 * 1024)
+        try:
+            release = json.loads(release_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValidationError(f"GitHub Release API returned invalid JSON: {error}") from error
+    assets = release.get("assets") if isinstance(release, dict) else None
+    if not isinstance(assets, list):
+        raise ValidationError("GitHub Release API response does not contain assets")
+    wheels = [item for item in assets if isinstance(item, dict) and isinstance(item.get("name"), str) and re.fullmatch(r"agent_kits-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl", item["name"])]
+    checksums = [item for item in assets if isinstance(item, dict) and item.get("name") == "SHA256SUMS"]
+    if len(wheels) != 1 or len(checksums) != 1:
+        raise ValidationError("Latest Release must contain one agent-kits wheel and SHA256SUMS")
+    latest_wheel = wheels[0].get("browser_download_url")
+    latest_checksums = checksums[0].get("browser_download_url")
+    if not isinstance(latest_wheel, str) or not isinstance(latest_checksums, str):
+        raise ValidationError("Latest Release assets contain invalid download URLs")
+    return latest_wheel, latest_checksums
+
+
 def _wheel_version(path: Path) -> str:
     metadata_name = re.compile(r"^[^/]+\.dist-info/METADATA$")
     try:
@@ -411,6 +454,13 @@ def _wheel_version(path: Path) -> str:
     except (OSError, UnicodeError, zipfile.BadZipFile) as error:
         raise ValidationError(f"Unable to inspect update wheel: {error}") from error
     raise ValidationError("Update wheel does not declare a version")
+
+
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", value)
+    if not match:
+        raise ValidationError(f"Invalid package version: {value}")
+    return tuple(int(part) for part in match.groups())
 
 
 def _verify_release_checksum(wheel: Path, checksum_file: Path, wheel_name: str) -> str:
@@ -467,8 +517,11 @@ def run_update_cli(check_only: bool = False, yes: bool = False) -> dict[str, Any
     root_absolute = Path(os.path.abspath(root_path))
     if root_absolute not in python_absolute.parents or not python_path.is_file():
         raise ValidationError("Installer metadata points to a missing Python executable")
+    latest_wheel_url, latest_checksum_url = _latest_release_assets(metadata, wheel_url)
     with tempfile.TemporaryDirectory(prefix="kitcli-update-") as temporary:
         directory = Path(temporary)
+        wheel_url = latest_wheel_url
+        checksum_url = latest_checksum_url
         wheel_name = Path(urlparse(wheel_url).path).name
         if not wheel_name.startswith("agent_kits-") or not wheel_name.endswith("-py3-none-any.whl"):
             raise ValidationError("Update URL does not reference an agent-kits wheel")
@@ -480,9 +533,11 @@ def run_update_cli(check_only: bool = False, yes: bool = False) -> dict[str, Any
         version = _wheel_version(wheel)
         current = __version__
         if check_only:
-            return {"current_version": current, "available_version": version, "update_available": version != current, "sha256": digest, "mode": "official-isolated-installer"}
+            return {"current_version": current, "available_version": version, "update_available": _version_tuple(version) > _version_tuple(current), "sha256": digest, "mode": "official-isolated-installer"}
         if not yes:
             raise PolicyError("CLI update writes the installed environment; rerun with --yes")
+        if _version_tuple(version) <= _version_tuple(current):
+            return {"current_version": current, "available_version": version, "updated": False, "reason": "latest Release is not newer", "sha256": digest, "mode": "official-isolated-installer"}
         command = [str(python_path), "-m", "pip", "install", "--upgrade", "--no-deps", str(wheel)]
         try:
             subprocess.run(command, check=True, capture_output=True, text=True)

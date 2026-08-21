@@ -38,6 +38,7 @@ if [ -n "${KITCLI_WHEEL_URL:-}" ]; then
   wheel_url=$KITCLI_WHEEL_URL
   wheel_name=${KITCLI_WHEEL_NAME:-$(basename "$wheel_url")}
   checksum_url=${KITCLI_CHECKSUM_URL:-}
+  release_api_url=${KITCLI_RELEASE_API_URL:-}
 else
   repo_path=${repo_url#https://github.com/}
   repo_path=${repo_path%/}
@@ -63,7 +64,8 @@ PY
 )
 wheel_name=$(printf '%s\n' "$release_assets" | sed -n '1p')
 wheel_url=$(printf '%s\n' "$release_assets" | sed -n '2p')
-checksum_url=$(printf '%s\n' "$release_assets" | sed -n '3p')
+  checksum_url=$(printf '%s\n' "$release_assets" | sed -n '3p')
+  release_api_url=$api_url
 fi
 
 case "$wheel_url" in https://github.com/*|https://objects.githubusercontent.com/*) ;; *) echo "kitcli installer: release wheel URL must use GitHub HTTPS" >&2; exit 2 ;; esac
@@ -100,12 +102,12 @@ fi
 ln -sf "$venv_dir/bin/kitcli" "$bin_dir/kitcli"
 ln -sf "$venv_dir/bin/agent-kits" "$bin_dir/agent-kits"
 
-$python_cmd - "$install_root/install.json" "$venv_dir/bin/python" "$wheel_url" "$checksum_url" "$install_root" "$bin_dir" <<'PY'
+$python_cmd - "$install_root/install.json" "$venv_dir/bin/python" "$wheel_url" "$checksum_url" "$release_api_url" "$install_root" "$bin_dir" <<'PY'
 import json
 import pathlib
 import sys
 
-output, python, wheel_url, checksum_url, install_root, bin_dir = sys.argv[1:]
+output, python, wheel_url, checksum_url, release_api_url, install_root, bin_dir = sys.argv[1:]
 pathlib.Path(output).write_text(json.dumps({
     "schema_version": 1,
     "method": "official-isolated-installer",
@@ -113,6 +115,7 @@ pathlib.Path(output).write_text(json.dumps({
     "python": python,
     "wheel_url": wheel_url,
     "checksum_url": checksum_url,
+    "release_api_url": release_api_url,
     "install_root": install_root,
     "bin_dir": bin_dir,
 }, indent=2) + "\n", encoding="utf-8")

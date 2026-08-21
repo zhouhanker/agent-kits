@@ -205,7 +205,8 @@ Check the latest Release without writing:
 kitcli update --check
 ```
 
-Update an installation made by the official installer:
+Update an installation made by the official installer. The updater queries the
+latest GitHub Release instead of re-checking the Release used at initial install:
 
 ```bash
 kitcli update --yes
@@ -251,7 +252,7 @@ URL/file -> source inspect -> source import/quarantine
 - [Architecture review](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent validation and component lifecycle](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-The official `v0.1.5` installer and self-update flow are verified on macOS.
+The official `v0.1.6` installer and self-update flow are verified on macOS.
 The Windows installer has CI coverage but has not yet been verified on a real
 Windows device. The external Apple gateway remains manual-only until it has an
 immutable Release, artifact digest, license, and CI evidence.

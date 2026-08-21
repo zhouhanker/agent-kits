@@ -110,8 +110,8 @@ CLI 的用户入口固定为短命令 `kitcli`；发行包和 Python import 仍�
 CLI、仓库、外部来源和设备配置串成一次无人审查的写操作。
 
 V1 对 CLI 自身提供官方隔离安装器的 `update`（默认只读）、`update --check` /
-`update --yes`，只更新已写入
-安装元数据的用户目录虚拟环境，并在下载后校验 Release `SHA256SUMS`。Conda、pipx
+`update --yes`，更新器根据安装元数据定位 GitHub 仓库的最新正式 Release，只更新
+已写入安装元数据的用户目录虚拟环境，并在下载后校验 Release `SHA256SUMS`。Conda、pipx
 和 uv 安装仍由原包管理器更新；仓库和 external lock 的替换继续委托给各自的
 Release 流程，设备变更使用单独的 `plan/apply/verify/rollback`。
 

@@ -187,7 +187,8 @@ kitcli --json --non-interactive catalog list
 kitcli update --check
 ```
 
-确认后更新通过官方安装器创建的隔离环境：
+确认后更新通过官方安装器创建的隔离环境。更新器会查询 GitHub 最新正式 Release，
+不会重复检查安装时记录的旧版本：
 
 ```bash
 kitcli update --yes
@@ -232,6 +233,6 @@ URL/文件 -> source inspect -> source import/quarantine
 - [架构评审](docs/architecture/ARCHITECTURE_REVIEW.md)
 - [Agent 验证与组件生命周期](docs/architecture/AGENT_VALIDATION_AND_COMPONENT_LIFECYCLE.md)
 
-当前 `v0.1.5` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
+当前 `v0.1.6` 官方安装器和自更新流程已在 macOS 验证。Windows 安装器有 CI 覆盖，
 但尚未在真实 Windows 设备验证；外部 Apple 网关仍需不可变 Release、制品摘要、许可证
 和 CI 证据后才能进入无人值守安装。

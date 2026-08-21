@@ -28,6 +28,7 @@ try {
         $wheelName = if ($env:KITCLI_WHEEL_NAME) { $env:KITCLI_WHEEL_NAME } else { [System.IO.Path]::GetFileName(([uri]$wheelUrl).AbsolutePath) }
         $checksumUrl = $env:KITCLI_CHECKSUM_URL
         if (-not $checksumUrl) { throw "KITCLI_CHECKSUM_URL is required with KITCLI_WHEEL_URL" }
+        $releaseApiUrl = if ($env:KITCLI_RELEASE_API_URL) { $env:KITCLI_RELEASE_API_URL } else { "" }
     }
     else {
         $repoPath = $repoUrl.Substring("https://github.com/".Length).TrimEnd("/")
@@ -40,6 +41,7 @@ try {
         $wheelName = $wheel[0].name
         $wheelUrl = $wheel[0].browser_download_url
         $checksumUrl = $checksum[0].browser_download_url
+        $releaseApiUrl = $apiUrl
     }
     $wheelHost = ([uri]$wheelUrl).Host
     $checksumHost = ([uri]$checksumUrl).Host
@@ -66,6 +68,7 @@ try {
         python = $venvPython
         wheel_url = $wheelUrl
         checksum_url = $checksumUrl
+        release_api_url = $releaseApiUrl
         install_root = $installRoot
         bin_dir = $binDir
     }

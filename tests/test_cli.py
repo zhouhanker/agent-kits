@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -331,18 +332,62 @@ class CliTestCase(unittest.TestCase):
             "install_root": str(Path(sys.executable).resolve().parents[2]),
             "wheel_url": f"https://example.invalid/{wheel_name}",
             "checksum_url": "https://example.invalid/SHA256SUMS",
+            "release_api_url": "https://api.github.com/repos/example/agent-kits/releases/latest",
         }
         state_path = self.state / "install.json"
         state_path.write_text(json.dumps(metadata), encoding="utf-8")
         os.environ["KITCLI_INSTALL_STATE"] = str(state_path)
 
-        def copy_asset(url: str, destination: Path) -> None:
-            destination.write_bytes(wheel.read_bytes() if url.endswith(".whl") else checksums.read_bytes())
+        release = {
+            "assets": [
+                {"name": wheel_name, "browser_download_url": "https://example.invalid/" + wheel_name},
+                {"name": "SHA256SUMS", "browser_download_url": "https://example.invalid/SHA256SUMS"},
+            ]
+        }
 
-        with mock.patch("agent_kits.application.service._download_update_asset", side_effect=lambda url, destination, max_bytes: copy_asset(url, destination)):
+        def copy_asset(url: str, destination: Path, max_bytes: int) -> None:
+            if url.endswith("/latest"):
+                destination.write_text(json.dumps(release), encoding="utf-8")
+            else:
+                destination.write_bytes(wheel.read_bytes() if url.endswith(".whl") else checksums.read_bytes())
+
+        with mock.patch("agent_kits.application.service._download_update_asset", side_effect=copy_asset):
             result = run_update_cli(check_only=True)
         self.assertTrue(result["update_available"])
         self.assertEqual(result["available_version"], "9.9.9")
+
+    def test_official_update_check_does_not_offer_a_downgrade(self) -> None:
+        metadata = {
+            "schema_version": 1,
+            "method": "official-isolated-installer",
+            "package": "agent-kits",
+            "python": sys.executable,
+            "install_root": str(Path(sys.executable).resolve().parents[2]),
+            "wheel_url": "https://example.invalid/agent_kits-0.1.5-py3-none-any.whl",
+            "checksum_url": "https://example.invalid/SHA256SUMS",
+            "release_api_url": "https://api.github.com/repos/example/agent-kits/releases/latest",
+        }
+        state_path = self.state / "install-downgrade.json"
+        state_path.write_text(json.dumps(metadata), encoding="utf-8")
+        os.environ["KITCLI_INSTALL_STATE"] = str(state_path)
+        wheel = self.state / "agent_kits-0.1.5-py3-none-any.whl"
+        with zipfile.ZipFile(wheel, "w") as archive:
+            archive.writestr("agent_kits-0.1.5.dist-info/METADATA", "Metadata-Version: 2.1\nVersion: 0.1.5\n")
+        checksums = self.state / "SHA256SUMS-downgrade"
+        checksums.write_text(f"{hashlib.sha256(wheel.read_bytes()).hexdigest()}  {wheel.name}\n", encoding="utf-8")
+        release = {"assets": [{"name": wheel.name, "browser_download_url": "https://example.invalid/" + wheel.name}, {"name": "SHA256SUMS", "browser_download_url": "https://example.invalid/SHA256SUMS"}]}
+
+        def copy_asset(url: str, destination: Path, max_bytes: int) -> None:
+            if url.endswith("/latest"):
+                destination.write_text(json.dumps(release), encoding="utf-8")
+            elif url.endswith(".whl"):
+                destination.write_bytes(wheel.read_bytes())
+            else:
+                destination.write_bytes(checksums.read_bytes())
+
+        with mock.patch("agent_kits.application.service._download_update_asset", side_effect=copy_asset):
+            result = run_update_cli(check_only=True)
+        self.assertFalse(result["update_available"])
 
     def test_bundle_path_traversal_is_rejected(self) -> None:
         bundle = self.project / "unsafe.zip"

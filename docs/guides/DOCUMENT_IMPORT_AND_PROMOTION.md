@@ -201,7 +201,7 @@ catalog/kits/luna-worker/manifest.toml      # 五个目标路径、摘要和合�
 
 V1 的 `update check` 仍只读；官方隔离安装器另外提供默认只读的 `kitcli update`、
 显式的 `kitcli update --check`
-和 `kitcli update --yes`，仅替换安装器元数据指向的 CLI 虚拟环境。它不会自动替换
+和 `kitcli update --yes`，查询最新正式 Release 后仅替换安装器记录的 CLI 虚拟环境。它不会自动替换
 仓库文件、source lock 或设备配置。低风险的来源摘要/链接变化可以由 CI 生成待审
 PR；Hook、MCP、Agent、权限、命令、目标路径和外部服务变化必须人工审核。
 
