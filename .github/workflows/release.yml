@@ -38,7 +38,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           DISPATCH_TAG: ${{ inputs.tag }}
         run: |
+          gh --version
           tag="$RELEASE_TAG"
           if [ "$tag" = "master" ] || [ "$tag" = "main" ]; then tag="$DISPATCH_TAG"; fi
           test -n "$tag"
-          gh release create "$tag" dist/* SHA256SUMS scripts/install.sh scripts/install.ps1 --verify-tag "$tag" --generate-notes
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" dist/* SHA256SUMS scripts/install.sh scripts/install.ps1 --generate-notes
