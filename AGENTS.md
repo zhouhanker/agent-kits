@@ -132,6 +132,10 @@
 - Claude subscription-compatible adapter behavior and redacted structured-error
   diagnostics were pushed to `origin/main` as `0952a05` on 2026-08-21. This
   does not resolve the external Agent authentication/provider blockers.
+- Host-side OpenAI-compatible `model-api`, DeepSeek-style local configuration,
+  Podman fallback, and the real no-install Luna Docker receipt were pushed to
+  `origin/main` as `f35add0` on 2026-08-21. `env.toml` and `llm-repo/` were
+  confirmed ignored and were not staged or uploaded.
 - V2 source-intake implementation was pushed to `origin/main` as commit
   `54592b4` on 2026-08-21 after a staged credential-pattern scan. `llm-repo/`
   was not staged or pushed.
