@@ -76,7 +76,8 @@ import hashlib
 import pathlib
 import sys
 
-wheel, checksums, name = map(pathlib.Path, sys.argv[1:])
+wheel, checksums = map(pathlib.Path, sys.argv[1:3])
+name = sys.argv[3]
 expected = None
 for line in checksums.read_text(encoding="utf-8").splitlines():
     fields = line.split()
